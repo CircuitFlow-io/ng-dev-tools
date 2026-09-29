@@ -11,6 +11,6 @@ func NewRootCmd(version string) *cobra.Command {
 		Version:      version,
 		SilenceUsage: true,
 	}
-	root.AddCommand(newCleanCmd(), newPortsCmd(), newDoctorCmd(), newOpenCmd(), newRunCmd(), newStatusCmd(), newPRsCmd())
+	root.AddCommand(newCleanCmd(), newPortsCmd(), newDoctorCmd(), newOpenCmd(), newRunCmd(), newStatusCmd(), newPRsCmd(), newEnvCmd())
 	return root
 }
