@@ -45,7 +45,7 @@ A folder that only groups other folders is replaced by the projects inside it. X
 project's workspace (or its ios/ one), and Android Studio a React Native app's android/ folder.
 
 When output is not a terminal, the projects are printed instead and nothing is opened.`,
-		Example: "  ngt open\n  ngt open memorit\n  ngt open --root ~/work\n  ngt open | grep trip",
+		Example: "  ngt open\n  ngt open museum\n  ngt open --root ~/work\n  ngt open | grep weather",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runOpen(cmd.Context(), cmd.OutOrStdout(), strings.Join(args, ""), flags)

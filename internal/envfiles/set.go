@@ -12,7 +12,7 @@ import (
 // Set is an example file and the local files it describes, in one folder. A folder whose local
 // files have no example forms a set without one.
 type Set struct {
-	// Name is the folder relative to the projects root, such as memorit/apps/web.
+	// Name is the folder relative to the projects root, such as museum/apps/web.
 	Name string
 	Dir  string
 	// Example is the example's file name, empty when the local files have none.

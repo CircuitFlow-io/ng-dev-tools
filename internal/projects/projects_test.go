@@ -194,11 +194,11 @@ func TestMatches(t *testing.T) {
 		name, query string
 		want        bool
 	}{
-		{"trip-plan/trip-plan-app", "tpa", true},
-		{"memorit", "MEM", true},
-		{"memorit", "", true},
-		{"memorit", "mx", false},
-		{"multi-app", "ppa", false},
+		{"blog/blog-app", "bba", true},
+		{"museum", "MEM", true},
+		{"museum", "", true},
+		{"museum", "mx", false},
+		{"home-app", "ppa", false},
 	} {
 		if got := Matches(tt.name, tt.query); got != tt.want {
 			t.Errorf("Matches(%q, %q) = %v, want %v", tt.name, tt.query, got, tt.want)
@@ -214,7 +214,7 @@ func TestStoreRoundTrip(t *testing.T) {
 		t.Fatalf("missing file = %+v, %v, want empty state", empty, err)
 	}
 
-	empty.RecordOpen("/p/memorit", "/Applications/Zed.app", base)
+	empty.RecordOpen("/p/museum", "/Applications/Zed.app", base)
 	if err := store.Save(empty); err != nil {
 		t.Fatal(err)
 	}
@@ -222,11 +222,11 @@ func TestStoreRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.IDE != "/Applications/Zed.app" || !loaded.Opened["/p/memorit"].Equal(base) {
+	if loaded.IDE != "/Applications/Zed.app" || !loaded.Opened["/p/museum"].Equal(base) {
 		t.Errorf("loaded = %+v", loaded)
 	}
-	if loaded.ProjectIDEs["/p/memorit"] != "/Applications/Zed.app" {
-		t.Errorf("project IDE = %q", loaded.ProjectIDEs["/p/memorit"])
+	if loaded.ProjectIDEs["/p/museum"] != "/Applications/Zed.app" {
+		t.Errorf("project IDE = %q", loaded.ProjectIDEs["/p/museum"])
 	}
 }
 

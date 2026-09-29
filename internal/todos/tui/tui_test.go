@@ -26,12 +26,12 @@ func sampleItems(dir string) []todos.Item {
 	now := time.Now()
 	return []todos.Item{
 		{
-			Project: "memorit", Dir: dir, File: "api/admin.ts", Line: 3, Marker: todos.Fixme, Note: "@ts-expect-error",
+			Project: "museum", Dir: dir, File: "api/admin.ts", Line: 3, Marker: todos.Fixme, Note: "@ts-expect-error",
 			Author: "Kim", At: now.Add(-400 * 24 * time.Hour), Commit: "e592be74c1bbbd008c83b9723e71b2f0b63afb5a",
-			Subject: "Use batches", CommitURL: "https://github.com/acme/memorit/commit/e592be7",
+			Subject: "Use batches", CommitURL: "https://github.com/acme/museum/commit/e592be7",
 		},
 		{
-			Project: "trip-planner", Dir: "/p/trip-planner", File: "src/Day.tsx", Line: 147, Marker: todos.Todo, Note: "Load GPX",
+			Project: "weather", Dir: "/p/weather", File: "src/Day.tsx", Line: 147, Marker: todos.Todo, Note: "Load GPX",
 			Author: "Me", Mine: true, At: now.Add(-60 * 24 * time.Hour), Commit: "abc1234def",
 		},
 		{Project: "ngt", Dir: "/p/ngt", File: "main.go", Line: 1, Marker: todos.Hack, Uncommitted: true, Mine: true},
@@ -165,7 +165,7 @@ func TestOpenCommit(t *testing.T) {
 	m := loaded(t, []ide.IDE{zed}, actions)
 	m, cmd := press(t, m, key("o"))
 	deliver(t, m, cmd)
-	if len(actions.urls) != 1 || actions.urls[0] != "https://github.com/acme/memorit/commit/e592be7" {
+	if len(actions.urls) != 1 || actions.urls[0] != "https://github.com/acme/museum/commit/e592be7" {
 		t.Errorf("urls = %v", actions.urls)
 	}
 

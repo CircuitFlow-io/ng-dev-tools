@@ -24,9 +24,9 @@ var (
 func sampleRepos() []gitstatus.Repo {
 	now := time.Now()
 	return []gitstatus.Repo{
-		{Name: "trip-planner", Path: "/p/trip-planner", Branch: "main", HasRemote: true, Upstream: "origin/main", LastCommit: gitstatus.Commit{At: now.Add(-48 * time.Hour)}},
+		{Name: "weather", Path: "/p/weather", Branch: "main", HasRemote: true, Upstream: "origin/main", LastCommit: gitstatus.Commit{At: now.Add(-48 * time.Hour)}},
 		{
-			Name: "memorit", Path: "/p/memorit", Branch: "chore/upgrade", HasRemote: true, Unpushed: 2,
+			Name: "museum", Path: "/p/museum", Branch: "chore/upgrade", HasRemote: true, Unpushed: 2,
 			Files:      []gitstatus.File{{Path: "apps/web/next.config.ts", Staged: '.', Unstaged: 'M'}},
 			Stashes:    []gitstatus.Stash{{Ref: "stash@{0}", At: now, Message: "WIP on main"}},
 			LastCommit: gitstatus.Commit{At: now.Add(-time.Hour)},
@@ -122,7 +122,7 @@ func rowOf(t *testing.T, m Model, name string) string {
 func TestRowsAreSortedMostUrgentFirst(t *testing.T) {
 	m, _ := loaded(t, Config{}, &fakeActions{})
 	out := view(m)
-	order := []string{"▸ ✖ rebasing", "● memorit", "● ng-dev-tools", "✓ trip-planner"}
+	order := []string{"▸ ✖ rebasing", "● museum", "● ng-dev-tools", "✓ weather"}
 	last := -1
 	for _, want := range order {
 		i := strings.Index(out, want)
@@ -134,7 +134,7 @@ func TestRowsAreSortedMostUrgentFirst(t *testing.T) {
 	if !strings.Contains(out, "3 need attention") {
 		t.Errorf("title should count the repos needing attention:\n%s", out)
 	}
-	for name, want := range map[string]string{"memorit": "⇡2 not pushed", "ng-dev-tools": "no remote", "trip-planner": "clean"} {
+	for name, want := range map[string]string{"museum": "⇡2 not pushed", "ng-dev-tools": "no remote", "weather": "clean"} {
 		if row := rowOf(t, m, name); !strings.Contains(row, want) {
 			t.Errorf("%s row %q lacks %q", name, row, want)
 		}
@@ -155,7 +155,7 @@ func TestDetailsListFilesAndStashes(t *testing.T) {
 	m, _ := loaded(t, Config{}, &fakeActions{})
 	m, _ = press(t, m, down)
 	out := view(m)
-	for _, want := range []string{"memorit  chore/upgrade · not pushed yet", " M apps/web/next.config.ts", "NOT PUSHED  2 commits", "stash@{0}"} {
+	for _, want := range []string{"museum  chore/upgrade · not pushed yet", " M apps/web/next.config.ts", "NOT PUSHED  2 commits", "stash@{0}"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("details lack %q:\n%s", want, out)
 		}
@@ -267,7 +267,7 @@ func TestQuit(t *testing.T) {
 func TestPlainRow(t *testing.T) {
 	r := sampleRepos()[1]
 	got := PlainRow(r, time.Now(), "")
-	want := []string{"memorit", "chore/upgrade", "~1", "⇡2 not pushed", "1h 0m ago", "1 stash"}
+	want := []string{"museum", "chore/upgrade", "~1", "⇡2 not pushed", "1h 0m ago", "1 stash"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("PlainRow = %q, want %q", got, want)
 	}
