@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
 )
 
 // sandbox is a folder of real repositories sharing one bare remote, with git's user and system

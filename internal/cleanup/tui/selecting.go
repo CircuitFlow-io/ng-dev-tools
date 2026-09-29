@@ -6,8 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/cleanup"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/cleanup"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 const selectingHelp = "↑/↓ move · space toggle · c category · a all · n none · enter continue · q quit"

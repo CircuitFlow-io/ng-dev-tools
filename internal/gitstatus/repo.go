@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos"
-	"github.com/nasserghiasi/ng-dev-tools/internal/projects"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects"
 )
 
 const (

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos/macostest"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos/macostest"
 )
 
 var errNoRelease = errors.New("no release")

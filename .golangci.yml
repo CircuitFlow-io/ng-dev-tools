@@ -25,4 +25,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/nasserghiasi/ng-dev-tools
+        - github.com/CircuitFlow-io/ng-dev-tools

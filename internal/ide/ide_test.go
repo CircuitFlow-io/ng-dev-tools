@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos/macostest"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos/macostest"
 )
 
 const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>

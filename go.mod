@@ -1,4 +1,4 @@
-module github.com/nasserghiasi/ng-dev-tools
+module github.com/CircuitFlow-io/ng-dev-tools
 
 go 1.27.1
 

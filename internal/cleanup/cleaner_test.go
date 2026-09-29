@@ -8,8 +8,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/fsx"
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos/macostest"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/fsx"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos/macostest"
 )
 
 func newTestCleaner(home string, runner *macostest.Runner) Cleaner {

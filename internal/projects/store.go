@@ -3,7 +3,7 @@ package projects
 import (
 	"time"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/config"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/config"
 )
 
 const stateFileName = "open.json"

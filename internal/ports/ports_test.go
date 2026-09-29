@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos"
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos/macostest"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos/macostest"
 )
 
 const lsofListening = `p501

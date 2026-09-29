@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/fsx"
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/fsx"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 const (

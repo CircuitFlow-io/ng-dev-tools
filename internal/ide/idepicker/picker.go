@@ -10,8 +10,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/ide"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ide"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 const (

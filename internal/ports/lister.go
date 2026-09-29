@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/fsx"
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/fsx"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
 )
 
 // lsofNoMatchesExit is lsof's exit status when nothing matches the selection.
