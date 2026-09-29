@@ -160,6 +160,26 @@ The details box shows who added the line, when and in which commit, with the cod
 
 Keys: `↑/↓` move, `enter` open in IDE, `o` open commit, `m` mine only, `r` refresh, `q` quit.
 
+### `ngt standup`
+
+What you did since the last day you worked, across `~/projects` and GitHub: your commits by project, under the pull request or branch they belong to, the pull requests you opened or merged, the others' ones you reviewed or commented on, and the work still in progress.
+
+```sh
+ngt standup                     # since the last day you worked
+ngt standup --since monday      # the week so far
+ngt standup --since 3d | pbcopy # plain text, to paste somewhere
+```
+
+The last day you worked is the most recent day before today with a commit of yours, so weekends and holidays are skipped (with none in the last 30 days, it is the previous weekday). `--since` also takes `today`, `yesterday`, a weekday, a date such as `2026-09-28`, or `3d` and `2w`.
+
+- A commit is yours when its author is the `user.email` of its repository, on any local or remote branch, dated by when you wrote it, so a rebase does not bring old work back. Merge commits are left out. Worktrees and clones of one repository count once.
+- A commit goes under the pull request that has it, or under the open pull request for its branch when it is not pushed yet; otherwise under its branch (`not pushed` or `no PR`), or the default branch.
+- Pull requests with no commits in that time still show when they were opened, merged or closed then. Repositories you have no clone of are listed by their GitHub name.
+- `In progress` lists the repositories with uncommitted changes or commits not pushed yet, as `ngt status` sees them.
+- GitHub is read through `gh`. Without it, or when it is not logged in, the report only has local work and the title says why.
+
+Keys: `↑/↓` move, `enter`/`o` open the pull request, commit or branch on GitHub, `[` start a day earlier, `]` a day later, `r` refresh, `q` quit.
+
 ### `ngt claude sessions`
 
 Every saved Claude Code session, from every folder, in one list, most recently active first: the first prompt, when it was last active, the git branch, how many prompts it has and the model that wrote most of it. `claude --resume` only lists the current folder's sessions; this lists them all and searches what was said in them.
@@ -210,6 +230,8 @@ internal/envfiles/      env domain: env file names and keys, examples vs local f
 internal/envfiles/tui/  table, details box and add-missing prompt for `env`
 internal/todos/         todo domain: finding marker comments with git grep, dating them with git blame
 internal/todos/tui/     table and details box with the surrounding code for `todo`
+internal/standup/       standup domain: your commits by branch, your pull request activity through gh, the last day you worked
+internal/standup/tui/   grouped report for `standup`, also printed as plain text
 internal/claudesessions/ claude sessions domain: reading Claude Code transcripts, searching them, resuming one
 internal/claudesessions/tui/ searchable table and details box for `claude sessions`
 internal/ui/            shared styles and widgets (progress panel, list cursor, row highlight)
