@@ -113,12 +113,12 @@ type layout struct {
 // what is left.
 func (t table) layout() layout {
 	l := layout{
-		name:       t.fit("PROJECT", func(r gitstatus.Repo) cell { return cell{{r.Name, plain}} }, minNameWidth, maxNameWidth),
+		name:       t.fit("PROJECT", func(r gitstatus.Repo) ui.Cell { return ui.Cell{ui.NewSpan(r.Name, plain)} }, minNameWidth, maxNameWidth),
 		changes:    t.fit("CHANGES", changesCell, 0, t.width),
-		sync:       max(fetchingWidth+columnGap, t.fit("SYNC", func(r gitstatus.Repo) cell { return syncCell(r, t.syncState(r)) }, 0, t.width)),
-		lastCommit: t.fit("LAST COMMIT", func(r gitstatus.Repo) cell { return lastCommitCell(r, t.now) }, 0, t.width),
+		sync:       max(fetchingWidth+columnGap, t.fit("SYNC", func(r gitstatus.Repo) ui.Cell { return syncCell(r, t.syncState(r)) }, 0, t.width)),
+		lastCommit: t.fit("LAST COMMIT", func(r gitstatus.Repo) ui.Cell { return lastCommitCell(r, t.now) }, 0, t.width),
 	}
-	branch := t.fit("BRANCH", func(r gitstatus.Repo) cell { return cell{{r.Branch, plain}} }, minBranchWidth, maxBranchWidth)
+	branch := t.fit("BRANCH", func(r gitstatus.Repo) ui.Cell { return ui.Cell{ui.NewSpan(r.Branch, plain)} }, minBranchWidth, maxBranchWidth)
 	notes := t.fit("NOTES", notesCell, minNotesWidth, maxNotesWidth)
 	rest := t.width - cursorWidth - glyphWidth - l.name - l.changes - l.sync - l.lastCommit
 	keptBranch := min(branch, preferredBranchWidth)
@@ -131,10 +131,10 @@ func (t table) layout() layout {
 	return l
 }
 
-func (t table) fit(title string, field func(gitstatus.Repo) cell, least, most int) int {
+func (t table) fit(title string, field func(gitstatus.Repo) ui.Cell, least, most int) int {
 	longest := lipgloss.Width(title)
 	for _, r := range t.repos {
-		longest = max(longest, field(r).width())
+		longest = max(longest, field(r).Width())
 	}
 	return min(most, max(least, longest+columnGap))
 }
@@ -173,14 +173,14 @@ func (t table) row(index int, l layout) string {
 		nameStyle = ui.Bold
 	}
 	row := painter.Cursor() +
-		glyphCell(r).render(painter, glyphWidth) +
-		cell{{ui.Truncate(r.Name, l.name-columnGap), nameStyle}}.render(painter, l.name) +
-		cell{{ui.Truncate(r.Branch, l.branch-columnGap), branchStyle}}.render(painter, l.branch) +
-		changesCell(r).render(painter, l.changes) +
-		syncCell(r, t.syncState(r)).render(painter, l.sync) +
-		lastCommitCell(r, t.now).render(painter, l.lastCommit)
+		glyphCell(r).Render(painter, glyphWidth) +
+		ui.Cell{ui.NewSpan(ui.Truncate(r.Name, l.name-columnGap), nameStyle)}.Render(painter, l.name) +
+		ui.Cell{ui.NewSpan(ui.Truncate(r.Branch, l.branch-columnGap), branchStyle)}.Render(painter, l.branch) +
+		changesCell(r).Render(painter, l.changes) +
+		syncCell(r, t.syncState(r)).Render(painter, l.sync) +
+		lastCommitCell(r, t.now).Render(painter, l.lastCommit)
 	if l.notes > 0 {
-		row += notesCell(r).render(painter, l.notes)
+		row += notesCell(r).Render(painter, l.notes)
 	}
 	return painter.Fill(row, t.width)
 }

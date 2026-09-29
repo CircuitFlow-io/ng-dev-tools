@@ -14,6 +14,7 @@ const (
 	shortSHALength  = 7
 	branchRefPrefix = "ref: refs/heads/"
 	gitDirPrefix    = "gitdir: "
+	commonDirFile   = "commondir"
 )
 
 // Branch is the checked-out branch, the short commit for a detached HEAD, or "" outside git.
@@ -70,4 +71,18 @@ func GitDir(dir string) string {
 		target = filepath.Join(dir, target)
 	}
 	return target
+}
+
+// CommonDir is the main repository folder of a worktree's git dir, where the shared config and
+// refs live, or gitDir itself for an ordinary repository.
+func CommonDir(gitDir string) string {
+	data, err := os.ReadFile(filepath.Join(gitDir, commonDirFile))
+	if err != nil {
+		return gitDir
+	}
+	dir := strings.TrimSpace(string(data))
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(gitDir, dir)
+	}
+	return dir
 }
