@@ -160,6 +160,24 @@ The details box shows who added the line, when and in which commit, with the cod
 
 Keys: `↑/↓` move, `enter` open in IDE, `o` open commit, `m` mine only, `r` refresh, `q` quit.
 
+### `ngt claude sessions`
+
+Every saved Claude Code session, from every folder, in one list, most recently active first: the first prompt, when it was last active, the git branch, how many prompts it has and the model that wrote most of it. `claude --resume` only lists the current folder's sessions; this lists them all and searches what was said in them.
+
+```sh
+ngt claude sessions                  # interactive list
+ngt claude sessions expo upgrade     # start with a search
+ngt claude sessions | grep memorit   # plain table, with session ids, when not a terminal
+```
+
+Typing searches your prompts, Claude's replies and each session's title, folder, branches and models; every word must appear, in either case. The details box shows the session's title, folder, every branch it was on, when it started, its size, the replies per model, the pull requests it opened, its first and last prompts, and, while searching, the line that matched.
+
+`enter` replaces ngt with `claude --resume <id>` in the folder the session belongs to, so it continues where it was saved. A folder that was moved or deleted is struck through and cannot be resumed. Slash commands, shell commands, background task notices and subagents' transcripts do not count as prompts; a session without any prompt is left out.
+
+Sessions are read from `~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects`. It only reads them.
+
+Keys: type to search, `↑/↓` move, `enter` resume, `esc` clear the search or quit.
+
 ## Development
 
 ```sh
@@ -192,6 +210,8 @@ internal/envfiles/      env domain: env file names and keys, examples vs local f
 internal/envfiles/tui/  table, details box and add-missing prompt for `env`
 internal/todos/         todo domain: finding marker comments with git grep, dating them with git blame
 internal/todos/tui/     table and details box with the surrounding code for `todo`
+internal/claudesessions/ claude sessions domain: reading Claude Code transcripts, searching them, resuming one
+internal/claudesessions/tui/ searchable table and details box for `claude sessions`
 internal/ui/            shared styles and widgets (progress panel, list cursor, row highlight)
 internal/fsx/           filesystem helpers (disk usage, removal)
 internal/macos/         wrappers for mdls, simctl, ps, Info.plist
