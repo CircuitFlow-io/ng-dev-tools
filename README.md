@@ -1,0 +1,140 @@
+# ngt (ng-dev-tools)
+
+A personal toolbox of developer utilities for macOS, written in Go.
+
+## Install
+
+```sh
+make install        # installs `ngt` into $(go env GOPATH)/bin
+# or
+make build          # builds ./bin/ngt
+```
+
+Requires Go 1.27+.
+
+## Commands
+
+### `ngt clean`
+
+Scans your Mac for reclaimable disk space, lets you pick what to remove in an interactive list, then **permanently deletes** it (nothing goes to the Trash).
+
+```sh
+ngt clean                                  # scan everything
+ngt clean --dry-run                        # full flow, deletes nothing
+ngt clean --category dev --older-than 30d  # only developer junk, 30-day staleness
+ngt clean --projects-dir ~/work            # where to look for stale node_modules, target/, Pods/...
+ngt clean | less                           # non-interactive report when not a terminal
+```
+
+| Category | What it finds |
+|----------|---------------|
+| `caches` | `~/Library/Caches`, logs, browser and Electron app caches, Apple service caches, `/Library/Caches` and `/Library/Logs` (root), Trash, iOS updates and device backups |
+| `dev`    | Xcode DerivedData, archives, device support, simulators and runtimes (`simctl`), npm/Yarn/pnpm/Bun, Go, Gradle, Maven, CocoaPods, SwiftPM, pip/uv/Poetry, Cargo, Homebrew, Docker, JetBrains, stale project build folders |
+| `apps`   | Apps not opened within the staleness window (with their support files) and leftovers of uninstalled apps |
+| `files`  | Large files and old installers in `~/Downloads` and `~/Desktop` |
+
+Items tagged **review** may contain something you want to keep and are not selected by default. Items tagged **sudo** are root-owned; if you select any, you are asked for your password once before cleaning starts. Every run writes a log to `~/Library/Logs/ngt/`.
+
+Keys: `↑/↓` move, `space` toggle (on a header: the whole category), `c` category, `a` all, `n` none, `enter` continue, `q` quit.
+
+Safety: every path is checked right before deletion and must be strictly inside `$HOME`, `/Applications`, `/Library/Caches` or `/Library/Logs`; well-known folders themselves (`~/Documents`, `~/Library`, ...) and sensitive ones (`~/.ssh`, Keychains, iCloud Drive, Mail) are always refused. Symlinks are never followed.
+
+Some locations (Trash, Mail) need Full Disk Access for your terminal app; without it they are skipped and listed at the end.
+
+### `ngt ports`
+
+Shows every process listening on a TCP port, with its project (the git repository it was started from), uptime and addresses, and stops the ones you pick.
+
+```sh
+ngt ports                  # interactive list
+ngt ports 3000             # stop whatever holds :3000, after a y/N prompt
+ngt ports 3000 8080 -y     # no prompt
+ngt ports 5173 --force     # SIGKILL straight away
+ngt ports --all            # include macOS system and simulator processes
+ngt ports | grep node      # plain table when not a terminal
+```
+
+Processes get SIGTERM, then SIGKILL if they are still running after `--grace` (default 3s). Right before signalling, ngt checks that the pid still belongs to the same program and start time, so a recycled pid is never hit. Processes that need care are tagged: `docker` (Docker Desktop, which owns every published container port), `airplay` (AirPlay Receiver on 5000/7000), `system` and `simulator`.
+
+Keys: `↑/↓` move, `space` toggle, `a` all, `n` none, `enter` stop the checked processes (or the one under the cursor), `r` refresh, `q` quit.
+
+### `ngt doctor`
+
+Checks that this Mac is ready for Node, React Native (iOS and Android), Expo and Go work, and prints the command that fixes each problem. It only reads; it never installs or changes anything.
+
+```sh
+ngt doctor                 # every check, with a progress bar
+ngt doctor android go      # only some groups
+ngt doctor --problems      # hide what passed
+ngt doctor --offline       # skip network checks and latest-version lookups
+```
+
+Groups: `node` (nvm, Node on the latest LTS, pnpm 11+), `ios` (Xcode, simulator runtime, CocoaPods, Ruby, Watchman, EAS), `android` (JDK 17, JAVA_HOME, ANDROID_HOME, SDK components, AVD), `go` (Go and gopls, dlv, golangci-lint, gofumpt, goimports), `claude`, `shell` (UTF-8 locale, PATH, competing Node installs, open files limit), `git` (identity, defaults, gh, GitHub SSH), `globals` (misplaced and outdated npm globals, Homebrew), `network` (DNS, the registries and CDNs you download from, proxies), `services` (Docker, brew services, failing launch agents), `caches` (build caches over a size limit), `system` (disk, memory, FileVault, firewall, SIP, Time Machine, macOS updates, uptime, heat, battery, kernel panics, clock).
+
+Run it from your normal terminal so it sees the same environment variables as your builds. It exits with status 1 when any check fails. To add a check, add a `Check` to the group's file in `internal/doctor/`.
+
+### `ngt open`
+
+Lists the projects in `~/projects`, most recently opened or changed first, with their git branch, a `●` for uncommitted changes and when you last worked on them. Type to filter, press `enter`, and pick the IDE in the select box. Each project remembers its own IDE: next time the box starts on the IDE that project was last opened in (tagged `last used`), and a project you have not opened yet starts on the IDE you picked most recently (tagged `default`).
+
+```sh
+ngt open                   # pick a project, then an IDE
+ngt open memorit           # start filtered; a single match goes straight to the IDE box
+ngt open --root ~/work     # another projects folder
+ngt open | grep trip       # plain list, opens nothing
+```
+
+IDEs are found by their app bundle in `/Applications` and `~/Applications`: VS Code, VSCodium, Cursor, Windsurf, Zed, WebStorm, GoLand, IntelliJ IDEA, PyCharm, Rider, Android Studio, Xcode, Sublime Text and Nova. Xcode opens the project's `.xcworkspace` or `.xcodeproj` (including a React Native app's `ios/` one), and Android Studio opens a React Native app's `android/` folder.
+
+A folder that only groups other folders (no `.git` and no files of its own) is replaced by the projects inside it, and empty folders are hidden. "Changed" is the newest file in the project, skipping `node_modules`, build output and hidden folders, or the last commit or checkout. The IDE for each project, your most recent pick and when you opened each project are kept in `~/.config/ngt/open.json`.
+
+Keys: type to filter, `↑/↓` move, `enter` choose, `esc` clear the filter or quit. In the IDE box: `↑/↓` or `1`-`9`, `enter` open, `esc` back.
+
+### `ngt status`
+
+Shows the git state of every repository in `~/projects` on one screen, the ones needing attention first: a merge or rebase left in progress (`✖`), a branch behind its remote (`⇣`), uncommitted changes (`●`), then commits not pushed yet (`⇡`). Repositories with only stashes or other branches worth a look get a `◦`, and clean ones a `✓`.
+
+```sh
+ngt status                 # interactive list
+ngt status --fetch         # git fetch everything first, to know what is behind
+ngt status | grep -v clean # plain table when not a terminal
+```
+
+Columns: changes as `+staged ~modified ?untracked !conflicted`, sync with the upstream (`⇡2 ⇣1`, `not pushed`, `remote gone`, `no remote`), the last commit's age, and notes (stashes, other branches, the operation in progress). The details box below lists the changed files, the unpushed commits, the stashes and the other local branches that are behind, ahead, never pushed or whose remote branch was deleted, and says when the repository was last fetched.
+
+It only reads (with `--no-optional-locks`, so looking never rewrites the index) and never contacts a remote unless asked. `--fetch`, `f` and `F` run `git fetch`, which updates remote-tracking branches and nothing else: no pull, merge or prune. A fetch that would need a password or passphrase fails instead of prompting. Enter opens the repository in its IDE with the same box as `ngt open`, and remembers the choice.
+
+Keys: `↑/↓` move, `enter` open in IDE, `f` fetch the selected repository, `F` fetch all, `r` refresh, `q` quit.
+
+## Development
+
+```sh
+make test   # go test -race ./...
+make lint   # golangci-lint
+make fmt
+```
+
+Layout:
+
+```
+cmd/ngt/            entry point
+internal/cli/           cobra commands and flags; add new features here
+internal/cleanup/       clean domain: items, scanner, cleaner, deletion guard
+internal/cleanup/rules/ the catalogue of things to clean (one file per area)
+internal/cleanup/tui/   Bubble Tea screens for `clean`
+internal/ports/         ports domain: listing listeners (lsof, ps) and stopping processes
+internal/ports/tui/     Bubble Tea screens for `ports`
+internal/doctor/        doctor domain: the check catalog (one file per group) and the concurrent runner
+internal/doctor/tui/    progress screen and report for `doctor`
+internal/projects/      open domain: finding projects, recent activity, git branch and status, saved choices
+internal/projects/tui/  project list and IDE select box for `open`
+internal/ide/           detecting installed IDEs and opening projects in them
+internal/ide/idepicker/ the IDE select box shared by `open` and `status`
+internal/gitstatus/     status domain: reading each repository's changes, sync, stashes, branches; fetch
+internal/gitstatus/tui/ table and details box for `status`
+internal/ui/            shared styles and widgets (progress panel, list cursor, row highlight)
+internal/fsx/           filesystem helpers (disk usage, removal)
+internal/macos/         wrappers for mdls, simctl, ps, Info.plist
+```
+
+To add a cleanup target, add a `PathRule` (or a small `cleanup.Rule` implementation) to the relevant file in `internal/cleanup/rules/`. To add a new command, create `internal/cli/<name>.go` and register it in `NewRootCmd`.
