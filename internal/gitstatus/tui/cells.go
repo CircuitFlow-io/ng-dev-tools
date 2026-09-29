@@ -24,51 +24,6 @@ var (
 	plain  = lipgloss.NewStyle()
 )
 
-// span is a run of text in one style; a cell is the spans of one table cell.
-type span struct {
-	text  string
-	style lipgloss.Style
-}
-
-type cell []span
-
-func (c cell) width() int {
-	total := 0
-	for _, s := range c {
-		total += lipgloss.Width(s.text)
-	}
-	return total
-}
-
-// render paints the cell within width, cutting the text short when it does not fit.
-func (c cell) render(painter ui.RowPainter, width int) string {
-	var b strings.Builder
-	room := width
-	for _, s := range c {
-		if room <= 0 {
-			break
-		}
-		text := ui.Truncate(s.text, room)
-		room -= lipgloss.Width(text)
-		b.WriteString(painter.Paint(s.style, text))
-	}
-	if room > 0 {
-		b.WriteString(painter.Paint(plain, strings.Repeat(" ", room)))
-	}
-	return b.String()
-}
-
-func joinCells(cells []cell, joiner string) cell {
-	var joined cell
-	for i, c := range cells {
-		if i > 0 {
-			joined = append(joined, span{joiner, ui.Muted})
-		}
-		joined = append(joined, c...)
-	}
-	return joined
-}
-
 type glyph struct {
 	symbol string
 	style  lipgloss.Style
@@ -83,20 +38,20 @@ var glyphs = map[gitstatus.Level]glyph{
 	gitstatus.Clean:       {inSync, ui.Success},
 }
 
-func glyphCell(r gitstatus.Repo) cell {
+func glyphCell(r gitstatus.Repo) ui.Cell {
 	g := glyphs[r.Attention()]
-	return cell{{g.symbol, g.style}}
+	return ui.Cell{ui.NewSpan(g.symbol, g.style)}
 }
 
-func changesCell(r gitstatus.Repo) cell {
+func changesCell(r gitstatus.Repo) ui.Cell {
 	if r.Err != nil {
-		return cell{{"unreadable", ui.Danger}}
+		return ui.Cell{ui.NewSpan("unreadable", ui.Danger)}
 	}
 	c := r.Changes()
 	if !c.Any() {
-		return cell{{"clean", ui.Success}}
+		return ui.Cell{ui.NewSpan("clean", ui.Success)}
 	}
-	var parts []cell
+	var parts []ui.Cell
 	for _, count := range []struct {
 		prefix string
 		n      int
@@ -108,10 +63,10 @@ func changesCell(r gitstatus.Repo) cell {
 		{"?", c.Untracked, ui.Muted},
 	} {
 		if count.n > 0 {
-			parts = append(parts, cell{{count.prefix + strconv.Itoa(count.n), count.style}})
+			parts = append(parts, ui.Cell{ui.NewSpan(count.prefix+strconv.Itoa(count.n), count.style)})
 		}
 	}
-	return joinCells(parts, " ")
+	return ui.JoinCells(parts, " ")
 }
 
 // syncState is what the table knows about a fetch of the repository.
@@ -121,80 +76,80 @@ type syncState struct {
 	fetchErr string
 }
 
-func syncCell(r gitstatus.Repo, s syncState) cell {
+func syncCell(r gitstatus.Repo, s syncState) ui.Cell {
 	switch {
 	case s.fetching:
-		return cell{{s.spinner, ui.Title}, {" fetching", ui.Muted}}
+		return ui.Cell{ui.NewSpan(s.spinner, ui.Title), ui.NewSpan(" fetching", ui.Muted)}
 	case s.fetchErr != "":
-		return cell{{"fetch failed", ui.Danger}}
+		return ui.Cell{ui.NewSpan("fetch failed", ui.Danger)}
 	case r.Err != nil:
 		return nil
 	case !r.HasRemote:
-		return cell{{"no remote", ui.Muted}}
+		return ui.Cell{ui.NewSpan("no remote", ui.Muted)}
 	case r.Unborn:
-		return cell{{"no commits", ui.Muted}}
+		return ui.Cell{ui.NewSpan("no commits", ui.Muted)}
 	case r.Detached:
-		return cell{{"detached", ui.Muted}}
+		return ui.Cell{ui.NewSpan("detached", ui.Muted)}
 	case r.UpstreamGone:
-		return withUnpushed(r, cell{{"remote gone", ui.Warning}})
+		return withUnpushed(r, ui.Cell{ui.NewSpan("remote gone", ui.Warning)})
 	case r.NotPushed():
-		return withUnpushed(r, cell{{"not pushed", accent}})
+		return withUnpushed(r, ui.Cell{ui.NewSpan("not pushed", accent)})
 	}
 	return aheadBehind(r.Ahead, r.Behind)
 }
 
-func withUnpushed(r gitstatus.Repo, label cell) cell {
+func withUnpushed(r gitstatus.Repo, label ui.Cell) ui.Cell {
 	if r.Unpushed == 0 {
 		return label
 	}
-	return append(cell{{aheadArrow + strconv.Itoa(r.Unpushed) + " ", accent}}, label...)
+	return append(ui.Cell{ui.NewSpan(aheadArrow+strconv.Itoa(r.Unpushed)+" ", accent)}, label...)
 }
 
-func aheadBehind(ahead, behind int) cell {
+func aheadBehind(ahead, behind int) ui.Cell {
 	if ahead == 0 && behind == 0 {
-		return cell{{inSync, ui.Success}}
+		return ui.Cell{ui.NewSpan(inSync, ui.Success)}
 	}
-	var parts []cell
+	var parts []ui.Cell
 	if ahead > 0 {
-		parts = append(parts, cell{{aheadArrow + strconv.Itoa(ahead), accent}})
+		parts = append(parts, ui.Cell{ui.NewSpan(aheadArrow+strconv.Itoa(ahead), accent)})
 	}
 	if behind > 0 {
-		parts = append(parts, cell{{behindArrow + strconv.Itoa(behind), ui.Warning}})
+		parts = append(parts, ui.Cell{ui.NewSpan(behindArrow+strconv.Itoa(behind), ui.Warning)})
 	}
-	return joinCells(parts, " ")
+	return ui.JoinCells(parts, " ")
 }
 
-func lastCommitCell(r gitstatus.Repo, now time.Time) cell {
+func lastCommitCell(r gitstatus.Repo, now time.Time) ui.Cell {
 	if r.Unborn {
-		return cell{{"no commits", ui.Muted}}
+		return ui.Cell{ui.NewSpan("no commits", ui.Muted)}
 	}
 	if r.LastCommit.At.IsZero() {
 		return nil
 	}
-	return cell{{ui.Ago(now, r.LastCommit.At), plain}}
+	return ui.Cell{ui.NewSpan(ui.Ago(now, r.LastCommit.At), plain)}
 }
 
-func notesCell(r gitstatus.Repo) cell {
-	var parts []cell
+func notesCell(r gitstatus.Repo) ui.Cell {
+	var parts []ui.Cell
 	if r.Operation != gitstatus.NoOperation {
-		parts = append(parts, cell{{r.Operation.Verb(), ui.Danger}})
+		parts = append(parts, ui.Cell{ui.NewSpan(r.Operation.Verb(), ui.Danger)})
 	}
 	if n := len(r.Stashes); n > 0 {
-		parts = append(parts, cell{{ui.Count(n, "stash"), ui.Muted}})
+		parts = append(parts, ui.Cell{ui.NewSpan(ui.Count(n, "stash"), ui.Muted)})
 	}
 	parts = append(parts, branchNotes(r)...)
-	return joinCells(parts, noteJoiner)
+	return ui.JoinCells(parts, noteJoiner)
 }
 
 // branchNotes names a single noteworthy branch, and only counts several: the details box has more.
-func branchNotes(r gitstatus.Repo) []cell {
+func branchNotes(r gitstatus.Repo) []ui.Cell {
 	switch len(r.Branches) {
 	case 0:
 		return nil
 	case 1:
-		return []cell{branchCell(r.Branches[0])}
+		return []ui.Cell{branchCell(r.Branches[0])}
 	}
-	return []cell{{{ui.Count(len(r.Branches), "branch"), ui.Muted}}}
+	return []ui.Cell{{ui.NewSpan(ui.Count(len(r.Branches), "branch"), ui.Muted)}}
 }
 
 // branchKinds says why the other branches are worth a look: "4 behind, 2 not pushed".
@@ -218,24 +173,15 @@ func branchKinds(r gitstatus.Repo) string {
 }
 
 // branchCell is a branch with its state, such as "main ⇣2" or "spike not pushed".
-func branchCell(b gitstatus.Branch) cell {
-	c := cell{{b.Name + " ", plain}}
+func branchCell(b gitstatus.Branch) ui.Cell {
+	c := ui.Cell{ui.NewSpan(b.Name+" ", plain)}
 	switch {
 	case b.Gone:
-		return append(c, span{"remote gone", ui.Warning})
+		return append(c, ui.NewSpan("remote gone", ui.Warning))
 	case b.NotPushed():
-		return append(c, span{"not pushed", accent})
+		return append(c, ui.NewSpan("not pushed", accent))
 	}
 	return append(c, aheadBehind(b.Ahead, b.Behind)...)
-}
-
-// text is the cell without styling.
-func (c cell) text() string {
-	var b strings.Builder
-	for _, s := range c {
-		b.WriteString(s.text)
-	}
-	return b.String()
 }
 
 // PlainRow is a repository's table row as plain text, for output that is not a terminal.
@@ -244,9 +190,9 @@ func PlainRow(r gitstatus.Repo, now time.Time, fetchErr string) []string {
 	return []string{
 		r.Name,
 		r.Branch,
-		changesCell(r).text(),
-		syncCell(r, syncState{fetchErr: fetchErr}).text(),
-		lastCommitCell(r, now).text(),
-		notesCell(r).text(),
+		changesCell(r).Text(),
+		syncCell(r, syncState{fetchErr: fetchErr}).Text(),
+		lastCommitCell(r, now).Text(),
+		notesCell(r).Text(),
 	}
 }

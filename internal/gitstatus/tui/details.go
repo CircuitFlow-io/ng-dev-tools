@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/gitstatus"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
@@ -19,10 +18,6 @@ const (
 	// twoColumnWidth is the terminal width from which changes and commits sit side by side.
 	twoColumnWidth  = 100
 	columnSeparator = " │ "
-	ellipsis        = "…"
-	// minItemsForMoreLine is how many items a cut-short section needs before one of them gives way
-	// to an "… n more" line.
-	minItemsForMoreLine = 2
 )
 
 var (
@@ -30,30 +25,15 @@ var (
 	sectionLabel = ui.Heading
 )
 
-// String renders the cell's spans without padding.
-func (c cell) String() string {
-	var b strings.Builder
-	for _, s := range c {
-		b.WriteString(s.style.Render(s.text))
-	}
-	return b.String()
-}
-
-// section is a titled list in the details box, such as the stashes.
-type section struct {
-	title string
-	items []string
-}
-
 // details describes the repository under the cursor.
 func details(r gitstatus.Repo, ok bool, s syncState, now time.Time, width int) string {
 	inner := width - detailFrameWidth
 	if !ok {
 		return detailBox.Width(width).Render(padLines([]string{ui.Muted.Render("No repository selected")}))
 	}
-	lines := []string{fit(headerLine(r, s, now), inner)}
+	lines := []string{ui.FitLine(headerLine(r, s, now), inner)}
 	for _, alert := range alerts(r, s) {
-		lines = append(lines, fit(alert, inner))
+		lines = append(lines, ui.FitLine(alert, inner))
 	}
 	if room := detailLines - len(lines); room > 0 {
 		lines = append(lines, body(r, now, inner, room)...)
@@ -139,31 +119,20 @@ func body(r gitstatus.Repo, now time.Time, width, height int) []string {
 	if r.Err != nil {
 		return nil
 	}
-	changes := []section{changesSection(r, width)}
+	changes := []ui.Section{changesSection(r, width)}
 	others := otherSections(r, now)
 	if width+detailFrameWidth < twoColumnWidth {
-		return fitSections(append(changes, others...), width, height)
+		return ui.FitSections(append(changes, others...), width, height)
 	}
 	separatorWidth := lipgloss.Width(columnSeparator)
 	leftWidth := (width - separatorWidth) / 2
 	rightWidth := width - separatorWidth - leftWidth
-	left := fitSections(changes, leftWidth, height)
-	right := fitSections(others, rightWidth, height)
+	left := ui.FitSections(changes, leftWidth, height)
+	right := ui.FitSections(others, rightWidth, height)
 	if len(others) == 0 {
-		right = []string{fit(ui.Muted.Render(nothingElse(r)), rightWidth)}
+		right = []string{ui.FitLine(ui.Muted.Render(nothingElse(r)), rightWidth)}
 	}
-	lines := make([]string, max(len(left), len(right)))
-	for i := range lines {
-		l, rt := "", ""
-		if i < len(left) {
-			l = left[i]
-		}
-		if i < len(right) {
-			rt = right[i]
-		}
-		lines[i] = ui.PadRight(l, leftWidth) + ui.Muted.Render(columnSeparator) + rt
-	}
-	return lines
+	return ui.SideBySide(left, right, leftWidth, columnSeparator)
 }
 
 func nothingElse(r gitstatus.Repo) string {
@@ -176,10 +145,10 @@ func nothingElse(r gitstatus.Repo) string {
 	return "Nothing unpushed, no stashes or other branches"
 }
 
-func changesSection(r gitstatus.Repo, width int) section {
+func changesSection(r gitstatus.Repo, width int) ui.Section {
 	c := r.Changes()
 	if !c.Any() {
-		return section{title: sectionLabel.Render("CHANGES") + "  " + ui.Success.Render("working tree clean")}
+		return ui.Section{Title: sectionLabel.Render("CHANGES") + "  " + ui.Success.Render("working tree clean")}
 	}
 	var counts []string
 	for _, count := range []struct {
@@ -190,9 +159,9 @@ func changesSection(r gitstatus.Repo, width int) section {
 			counts = append(counts, fmt.Sprintf("%d %s", count.n, count.noun))
 		}
 	}
-	s := section{title: sectionLabel.Render("CHANGES") + "  " + strings.Join(counts, noteJoiner)}
+	s := ui.Section{Title: sectionLabel.Render("CHANGES") + "  " + strings.Join(counts, noteJoiner)}
 	for _, f := range r.Files {
-		s.items = append(s.items, fileLine(f, width))
+		s.Items = append(s.Items, fileLine(f, width))
 	}
 	return s
 }
@@ -216,74 +185,33 @@ func fileCode(f gitstatus.File, code string) string {
 	return ui.Success.Render(code[:1]) + ui.Warning.Render(code[1:])
 }
 
-func otherSections(r gitstatus.Repo, now time.Time) []section {
-	var sections []section
+func otherSections(r gitstatus.Repo, now time.Time) []ui.Section {
+	var sections []ui.Section
 	if r.Unpushed > 0 {
-		s := section{title: sectionLabel.Render("NOT PUSHED") + "  " + ui.Count(r.Unpushed, "commit")}
+		s := ui.Section{Title: sectionLabel.Render("NOT PUSHED") + "  " + ui.Count(r.Unpushed, "commit")}
 		for _, c := range r.UnpushedCommits {
-			s.items = append(s.items, accent.Render(c.Hash)+" "+c.Subject)
+			s.Items = append(s.Items, accent.Render(c.Hash)+" "+c.Subject)
 		}
 		sections = append(sections, s)
 	}
 	if len(r.Stashes) > 0 {
-		s := section{title: sectionLabel.Render("STASHES") + "  " + fmt.Sprint(len(r.Stashes))}
+		s := ui.Section{Title: sectionLabel.Render("STASHES") + "  " + fmt.Sprint(len(r.Stashes))}
 		for _, stash := range r.Stashes {
-			s.items = append(s.items, ui.Muted.Render(stash.Ref+"  "+ui.Ago(now, stash.At)+"  ")+stash.Message)
+			s.Items = append(s.Items, ui.Muted.Render(stash.Ref+"  "+ui.Ago(now, stash.At)+"  ")+stash.Message)
 		}
 		sections = append(sections, s)
 	}
 	if len(r.Branches) > 0 {
-		s := section{title: sectionLabel.Render("BRANCHES") + "  " + fmt.Sprint(len(r.Branches))}
+		s := ui.Section{Title: sectionLabel.Render("BRANCHES") + "  " + fmt.Sprint(len(r.Branches))}
 		if len(r.Branches) > 1 {
-			s.title += ui.Muted.Render(noteJoiner + branchKinds(r))
+			s.Title += ui.Muted.Render(noteJoiner + branchKinds(r))
 		}
 		for _, b := range r.Branches {
-			s.items = append(s.items, branchCell(b).String()+ui.Muted.Render("  "+ui.Ago(now, b.At)))
+			s.Items = append(s.Items, branchCell(b).String()+ui.Muted.Render("  "+ui.Ago(now, b.At)))
 		}
 		sections = append(sections, s)
 	}
 	return sections
-}
-
-// fitSections shows each section's title and shares the lines left among their items in turn,
-// so a long list of files does not hide the stashes.
-func fitSections(sections []section, width, height int) []string {
-	for len(sections) > height {
-		sections = sections[:len(sections)-1]
-	}
-	shown := make([]int, len(sections))
-	for room, more := height-len(sections), true; room > 0 && more; {
-		more = false
-		for i, s := range sections {
-			if room > 0 && shown[i] < len(s.items) {
-				shown[i]++
-				room--
-				more = true
-			}
-		}
-	}
-	var lines []string
-	for i, s := range sections {
-		lines = append(lines, fit(s.title, width))
-		for _, item := range visibleItems(s.items, shown[i]) {
-			lines = append(lines, fit(item, width))
-		}
-	}
-	return lines
-}
-
-// visibleItems is the first n items, the last replaced by "… k more" when some are left out.
-func visibleItems(items []string, n int) []string {
-	if n >= len(items) || n < minItemsForMoreLine {
-		return items[:n]
-	}
-	visible := append([]string(nil), items[:n-1]...)
-	return append(visible, ui.Muted.Render(fmt.Sprintf("%s %d more", ellipsis, len(items)-n+1)))
-}
-
-// fit cuts a styled line to width.
-func fit(line string, width int) string {
-	return ansi.Truncate(line, max(width, 0), ellipsis)
 }
 
 func firstLine(text string) string {

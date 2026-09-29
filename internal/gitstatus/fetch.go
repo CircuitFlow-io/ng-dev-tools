@@ -26,10 +26,7 @@ func Fetch(ctx context.Context, dir string) error {
 
 	var stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, "git", "-C", dir, "fetch", "--quiet")
-	cmd.Env = append(os.Environ(), noTermPrompts)
-	if ssh, ok := batchSSHCommand(ctx, dir); ok {
-		cmd.Env = append(cmd.Env, "GIT_SSH_COMMAND="+ssh)
-	}
+	cmd.Env = NoPromptEnv(ctx, dir)
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() != nil {
@@ -38,6 +35,16 @@ func Fetch(ctx context.Context, dir string) error {
 		return errors.New(firstLine(stderr.String(), err.Error()))
 	}
 	return nil
+}
+
+// NoPromptEnv is the environment for a git command in dir that must fail rather than ask for a
+// password or passphrase, which would take over the terminal behind an interface.
+func NoPromptEnv(ctx context.Context, dir string) []string {
+	env := append(os.Environ(), noTermPrompts)
+	if ssh, ok := batchSSHCommand(ctx, dir); ok {
+		env = append(env, "GIT_SSH_COMMAND="+ssh)
+	}
+	return env
 }
 
 // batchSSHCommand is the ssh command git would use, with prompts turned off. It is left alone
