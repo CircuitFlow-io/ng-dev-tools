@@ -11,9 +11,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/gitstatus"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ide"
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos/macostest"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/gitstatus"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ide"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos/macostest"
 )
 
 var (

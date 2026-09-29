@@ -10,11 +10,11 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos"
-	"github.com/nasserghiasi/ng-dev-tools/internal/projects"
-	"github.com/nasserghiasi/ng-dev-tools/internal/projects/projectlist"
-	"github.com/nasserghiasi/ng-dev-tools/internal/scripts"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects/projectlist"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/scripts"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 const (

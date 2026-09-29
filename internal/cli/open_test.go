@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/projects"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects"
 )
 
 func TestPrintProjectsFiltersByQuery(t *testing.T) {

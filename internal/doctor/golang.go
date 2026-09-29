@@ -4,8 +4,8 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/fsx"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/fsx"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 const goBinOnPathFix = `add to ~/.zshrc: export PATH="$(go env GOPATH)/bin:$PATH"`

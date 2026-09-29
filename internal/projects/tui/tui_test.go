@@ -10,9 +10,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/ide"
-	"github.com/nasserghiasi/ng-dev-tools/internal/projects"
-	"github.com/nasserghiasi/ng-dev-tools/internal/projects/projectlist"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ide"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects/projectlist"
 )
 
 var (

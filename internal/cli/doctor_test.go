@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/doctor"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/doctor"
 )
 
 func TestParseGroups(t *testing.T) {

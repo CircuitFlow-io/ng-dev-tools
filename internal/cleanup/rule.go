@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
 )
 
 // Rule discovers removable items of one kind, such as Xcode DerivedData or stale node_modules.

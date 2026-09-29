@@ -17,12 +17,12 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/gitstatus"
-	"github.com/nasserghiasi/ng-dev-tools/internal/gitstatus/tui"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ide"
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos"
-	"github.com/nasserghiasi/ng-dev-tools/internal/projects"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/gitstatus"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/gitstatus/tui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ide"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 const maxParallelFetches = 8

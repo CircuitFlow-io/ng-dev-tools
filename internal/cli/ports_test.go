@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos/macostest"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ports"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos/macostest"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ports"
 )
 
 func TestParsePorts(t *testing.T) {

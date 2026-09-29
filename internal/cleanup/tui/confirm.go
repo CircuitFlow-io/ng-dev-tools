@@ -7,8 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/cleanup"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/cleanup"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 type sudoResultMsg struct{ err error }

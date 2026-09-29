@@ -9,7 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/doctor"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/doctor"
 )
 
 func outcome(name string, group doctor.Group, result doctor.Result) doctor.Outcome {

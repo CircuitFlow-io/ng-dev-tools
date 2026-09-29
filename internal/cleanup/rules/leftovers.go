@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/cleanup"
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/cleanup"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
 )
 
 // minIndexedApps is how many apps Spotlight must report before we trust it to know what is
