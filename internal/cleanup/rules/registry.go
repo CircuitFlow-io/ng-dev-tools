@@ -3,7 +3,7 @@ package rules
 import (
 	"slices"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/cleanup"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/cleanup"
 )
 
 // Default returns every rule. Order matters: when two rules claim the same path the earlier one

@@ -14,9 +14,9 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/doctor"
-	"github.com/nasserghiasi/ng-dev-tools/internal/doctor/tui"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/doctor"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/doctor/tui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 var errChecksFailed = errors.New("some checks failed")

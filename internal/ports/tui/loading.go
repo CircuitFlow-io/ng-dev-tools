@@ -6,8 +6,8 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/ports"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ports"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 type listedMsg struct {

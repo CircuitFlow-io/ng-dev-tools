@@ -6,8 +6,8 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/cleanup"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/cleanup"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 // printReport lists findings as plain text. It is used when output is not a terminal,

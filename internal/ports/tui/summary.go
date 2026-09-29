@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/ports"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ports"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 func (m Model) summaryView() string {

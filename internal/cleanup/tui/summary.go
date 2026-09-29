@@ -6,8 +6,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/cleanup"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/cleanup"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/cli"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/cli"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".

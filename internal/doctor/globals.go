@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/ui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 const maxListedPackages = 8

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/projects"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects"
 )
 
 // Scores for how a search word matches a script or package. A script name counts more than a

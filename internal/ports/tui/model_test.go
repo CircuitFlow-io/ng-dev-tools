@@ -8,8 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos/macostest"
-	"github.com/nasserghiasi/ng-dev-tools/internal/ports"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos/macostest"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ports"
 )
 
 func sampleProcesses() []ports.Process {

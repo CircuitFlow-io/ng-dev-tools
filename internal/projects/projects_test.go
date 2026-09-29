@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nasserghiasi/ng-dev-tools/internal/macos/macostest"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos/macostest"
 )
 
 var base = time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
