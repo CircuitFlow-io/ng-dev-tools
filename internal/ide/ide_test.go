@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos/macostest"
@@ -109,5 +110,39 @@ func TestOpenUsesTheAppBundle(t *testing.T) {
 	}
 	if calls := runner.Calls(); len(calls) != 1 || calls[0] != "open -a /Applications/Cursor.app /p/memorit" {
 		t.Errorf("calls = %q", calls)
+	}
+}
+
+func TestLineCommand(t *testing.T) {
+	apps := t.TempDir()
+	cursor := IDE{Name: "Cursor", BundleID: "com.todesktop.230313mzl4w4u92", AppPath: filepath.Join(apps, "Cursor.app")}
+	zed := IDE{Name: "Zed", BundleID: "dev.zed.Zed", AppPath: filepath.Join(apps, "Zed.app")}
+	for _, cli := range []string{
+		filepath.Join(cursor.AppPath, "Contents", "Resources", "app", "bin", "cursor"),
+		filepath.Join(zed.AppPath, "Contents", "MacOS", "cli"),
+	} {
+		if err := os.MkdirAll(filepath.Dir(cli), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(cli, nil, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	missingCLI := IDE{Name: "Visual Studio Code", BundleID: "com.microsoft.VSCode", AppPath: filepath.Join(apps, "Code.app")}
+	tests := []struct {
+		ide  IDE
+		want string
+	}{
+		{cursor, filepath.Join(cursor.AppPath, "Contents", "Resources", "app", "bin", "cursor") + " /p -g /p/a.ts:12"},
+		{zed, filepath.Join(zed.AppPath, "Contents", "MacOS", "cli") + " /p /p/a.ts:12"},
+		{IDE{BundleID: "com.apple.dt.Xcode", AppPath: "/Applications/Xcode.app"}, "xed --line 12 /p/a.ts"},
+		{IDE{BundleID: "com.jetbrains.WebStorm", AppPath: "/Applications/WebStorm.app"}, "open -na /Applications/WebStorm.app --args --line 12 /p/a.ts"},
+		{missingCLI, "open -a " + missingCLI.AppPath + " /p/a.ts"},
+	}
+	for _, tt := range tests {
+		name, args := LineCommand(tt.ide, "/p", "/p/a.ts", 12)
+		if got := strings.Join(append([]string{name}, args...), " "); got != tt.want {
+			t.Errorf("%s: %q, want %q", tt.ide.BundleID, got, tt.want)
+		}
 	}
 }
