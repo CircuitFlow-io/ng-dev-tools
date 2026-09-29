@@ -141,6 +141,25 @@ Each example goes with the local files it describes: `.env.example` with `.env`,
 
 Keys: `↑/↓` move, `a` add missing keys, `r` refresh, `q` quit.
 
+### `ngt todo`
+
+The `TODO`, `FIXME` and `HACK` comments in every git repository in `~/projects`, dated with `git blame` and listed oldest first, so the longest forgotten lead. Lines not committed yet come last.
+
+```sh
+ngt todo                # interactive list (alias: ngt todos)
+ngt todo --mine | cat   # plain list of the lines you wrote
+```
+
+Only markers that start a comment count, in the comment syntax of the file's language, so `id: 'TODO'`, a `// TODO` inside a string or a comment that merely mentions TODO are left out. Tool directives may come first, as in `// @ts-expect-error FIXME`. In Markdown the marker must start the line (`> **TODO**: ...`). It searches tracked files and untracked ones git does not ignore, and skips dependencies, build output and lockfiles.
+
+The details box shows who added the line, when and in which commit, with the code around it.
+
+- `enter` opens the file at that line in your IDE, with the same box as `ngt open` (Cursor, VS Code, VSCodium, Windsurf, Zed, Sublime Text, Xcode and JetBrains IDEs jump to the line; others open the file).
+- `o` opens the commit that added the line on GitHub, once it is pushed.
+- `m` shows only the lines you wrote, by your git email in each repository.
+
+Keys: `↑/↓` move, `enter` open in IDE, `o` open commit, `m` mine only, `r` refresh, `q` quit.
+
 ## Development
 
 ```sh
@@ -163,14 +182,16 @@ internal/doctor/        doctor domain: the check catalog (one file per group) an
 internal/doctor/tui/    progress screen and report for `doctor`
 internal/projects/      open domain: finding projects, recent activity, git branch and status, saved choices
 internal/projects/tui/  project list and IDE select box for `open`
-internal/ide/           detecting installed IDEs and opening projects in them
-internal/ide/idepicker/ the IDE select box shared by `open` and `status`
+internal/ide/           detecting installed IDEs and opening projects, or a file at a line, in them
+internal/ide/idepicker/ the IDE select box shared by `open`, `status`, `prs` and `todo`
 internal/gitstatus/     status domain: reading each repository's changes, sync, stashes, branches; fetch
 internal/gitstatus/tui/ table and details box for `status`
 internal/pulls/         prs domain: reading pull requests through gh, local clones, checkout, failed logs
 internal/pulls/tui/     grouped list, details box and log view for `prs`
 internal/envfiles/      env domain: env file names and keys, examples vs local files, git exposure, keys read in code
 internal/envfiles/tui/  table, details box and add-missing prompt for `env`
+internal/todos/         todo domain: finding marker comments with git grep, dating them with git blame
+internal/todos/tui/     table and details box with the surrounding code for `todo`
 internal/ui/            shared styles and widgets (progress panel, list cursor, row highlight)
 internal/fsx/           filesystem helpers (disk usage, removal)
 internal/macos/         wrappers for mdls, simctl, ps, Info.plist
