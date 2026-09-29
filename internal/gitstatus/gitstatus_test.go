@@ -124,7 +124,7 @@ func TestFetchedAtFollowsAWorktreeToTheMainRepository(t *testing.T) {
 	if err := os.MkdirAll(worktree, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(worktree, commonDirFile), []byte("../..\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(worktree, "commondir"), []byte("../..\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if fetchedAt(worktree).IsZero() {

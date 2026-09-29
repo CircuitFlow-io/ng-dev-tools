@@ -106,6 +106,41 @@ It only reads (with `--no-optional-locks`, so looking never rewrites the index) 
 
 Keys: `↑/↓` move, `enter` open in IDE, `f` fetch the selected repository, `F` fetch all, `r` refresh, `q` quit.
 
+### `ngt prs`
+
+Your open pull requests and the ones waiting for your review, across every repository on GitHub, in one list: review requests on top, then your own. Each row says what the pull request is waiting for (`conflicts`, `checks failing`, `changes requested`, `draft`, `checks running`, `ready to merge`, or who it is waiting on), its CI counts, size and last update. The details box lists every check, each reviewer's verdict and whether the branch conflicts with its base.
+
+```sh
+ngt prs                  # interactive list (alias: ngt pr)
+ngt prs | grep conflicts # plain list when not a terminal
+```
+
+It reads GitHub with one GraphQL request through the `gh` CLI, so it uses your `gh auth login`.
+
+- `enter` opens the pull request in the browser.
+- `c` checks out its branch in your local clone, found in `~/projects` by its GitHub remote (`--root` for another folder). It runs `gh pr checkout`, which also fetches branches from forks, and refuses while the clone has uncommitted changes.
+- `i` opens the local clone in its IDE, with the same box as `ngt open`.
+- `l` shows the log of the failed GitHub Actions steps, scrolled to the end; `tab` moves to the next failed check and `o` opens the job page. GitHub keeps these logs for 90 days.
+
+Keys: `↑/↓` move, `enter` browser, `c` check out, `i` IDE, `l` failed log, `r` refresh, `q` quit.
+
+### `ngt env`
+
+Compares the env files of every project in `~/projects` with the example that documents them (`.env.example`, `.env.sample`, `.env.template`), folder by folder, monorepo apps included. Only key names are shown, never values.
+
+```sh
+ngt env                # interactive list
+ngt env | grep tracked # plain table when not a terminal
+```
+
+Rows come most urgent first: a local env file that git tracks, or that was committed and deleted but is still in history (`✖`, rotate its secrets), keys your files are missing (`●`), keys left empty (`○`), then keys the example does not list or that the code reads (`process.env.X`, `import.meta.env.X`, `os.Getenv`, `ENV["X"]`, ...) without the example naming them (`◆`). Folders with an example but no local file yet, or a local file with no example, get a `◦`.
+
+Each example goes with the local files it describes: `.env.example` with `.env`, `.env.local` and `.env.production.local`, and `.env.local.example` with `.env.local` when both exist. A key counts as set when any of them sets it. Shared files committed on purpose, such as fastlane's `.env.default`, provide keys but are never flagged as committed. Env files that are named pipes, as 1Password Environments makes, are listed but never opened, since reading one hands over its secrets.
+
+`a` appends the missing keys to the local file as `KEY=`, with the comments the example has above them, after asking. It is the only write, and it never changes a line already there.
+
+Keys: `↑/↓` move, `a` add missing keys, `r` refresh, `q` quit.
+
 ## Development
 
 ```sh
@@ -132,6 +167,10 @@ internal/ide/           detecting installed IDEs and opening projects in them
 internal/ide/idepicker/ the IDE select box shared by `open` and `status`
 internal/gitstatus/     status domain: reading each repository's changes, sync, stashes, branches; fetch
 internal/gitstatus/tui/ table and details box for `status`
+internal/pulls/         prs domain: reading pull requests through gh, local clones, checkout, failed logs
+internal/pulls/tui/     grouped list, details box and log view for `prs`
+internal/envfiles/      env domain: env file names and keys, examples vs local files, git exposure, keys read in code
+internal/envfiles/tui/  table, details box and add-missing prompt for `env`
 internal/ui/            shared styles and widgets (progress panel, list cursor, row highlight)
 internal/fsx/           filesystem helpers (disk usage, removal)
 internal/macos/         wrappers for mdls, simctl, ps, Info.plist

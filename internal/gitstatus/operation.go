@@ -3,13 +3,13 @@ package gitstatus
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
+
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects"
 )
 
 const (
 	fetchHeadFile  = "FETCH_HEAD"
-	commonDirFile  = "commondir"
 	resolveOrAbort = " --continue or --abort"
 )
 
@@ -88,25 +88,12 @@ func fetchedAt(gitDir string) time.Time {
 	if gitDir == "" {
 		return time.Time{}
 	}
-	for _, dir := range []string{gitDir, commonDir(gitDir)} {
+	for _, dir := range []string{gitDir, projects.CommonDir(gitDir)} {
 		if info, err := os.Stat(filepath.Join(dir, fetchHeadFile)); err == nil {
 			return info.ModTime()
 		}
 	}
 	return time.Time{}
-}
-
-// commonDir is the main repository folder of a worktree's git dir, or gitDir itself.
-func commonDir(gitDir string) string {
-	data, err := os.ReadFile(filepath.Join(gitDir, commonDirFile))
-	if err != nil {
-		return gitDir
-	}
-	dir := strings.TrimSpace(string(data))
-	if !filepath.IsAbs(dir) {
-		dir = filepath.Join(gitDir, dir)
-	}
-	return dir
 }
 
 func exists(path string) bool {
