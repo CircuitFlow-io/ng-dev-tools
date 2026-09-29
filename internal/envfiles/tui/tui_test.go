@@ -16,7 +16,7 @@ import (
 
 func sampleSets() []envfiles.Set {
 	return []envfiles.Set{
-		{Name: "trip-planner", Dir: "/p/trip-planner", Example: ".env.example", ExampleKeys: 4, Locals: []string{".env"}},
+		{Name: "weather", Dir: "/p/weather", Example: ".env.example", ExampleKeys: 4, Locals: []string{".env"}},
 		{
 			Name: "shop/apps/web", Dir: "/p/shop/apps/web", Example: ".env.example", ExampleKeys: 12,
 			Locals: []string{".env", ".env.local"}, Missing: []string{"STRIPE_KEY", "SENTRY_DSN"},
@@ -107,7 +107,7 @@ func rowOf(t *testing.T, m Model, name string) string {
 func TestRowsAreSortedMostUrgentFirst(t *testing.T) {
 	m := loaded(t, &fakeAdder{})
 	out := view(m)
-	order := []string{"▸ ✖ api", "● shop/apps/web", "◦ demo", "◦ vault", "✓ trip-planner"}
+	order := []string{"▸ ✖ api", "● shop/apps/web", "◦ demo", "◦ vault", "✓ weather"}
 	last := -1
 	for _, want := range order {
 		i := strings.Index(out, want)

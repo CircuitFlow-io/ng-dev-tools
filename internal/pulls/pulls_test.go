@@ -121,11 +121,11 @@ func TestLoadThroughGH(t *testing.T) {
 
 func TestRepoFromURL(t *testing.T) {
 	for url, want := range map[string]string{
-		"git@github.com:CircuitFlow-io/memorit.git":       "circuitflow-io/memorit",
-		"https://github.com/CircuitFlow-io/multi-app.git": "circuitflow-io/multi-app",
-		"https://github.com/acme/api":                     "acme/api",
-		"ssh://git@github.com/acme/api.git":               "acme/api",
-		"https://gitlab.com/acme/api.git":                 "",
+		"git@github.com:acme/museum.git":       "acme/museum",
+		"https://github.com/acme/home-app.git": "acme/home-app",
+		"https://github.com/acme/api":          "acme/api",
+		"ssh://git@github.com/acme/api.git":    "acme/api",
+		"https://gitlab.com/acme/api.git":      "",
 	} {
 		got, ok := RepoFromURL(url)
 		if got != want || ok != (want != "") {
@@ -136,14 +136,14 @@ func TestRepoFromURL(t *testing.T) {
 
 func TestClonesFindsProjectsByRemote(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "memorit", ".git", "config"), "[remote \"origin\"]\n\turl = git@github.com:CircuitFlow-io/memorit.git\n")
+	writeFile(t, filepath.Join(root, "museum", ".git", "config"), "[remote \"origin\"]\n\turl = git@github.com:acme/museum.git\n")
 	writeFile(t, filepath.Join(root, "notes", "todo.txt"), "")
 	clones := Clones(root)
-	if dir, ok := LocalClone(clones, "CircuitFlow-io/Memorit"); !ok || dir != filepath.Join(root, "memorit") {
+	if dir, ok := LocalClone(clones, "acme/Museum"); !ok || dir != filepath.Join(root, "museum") {
 		t.Errorf("LocalClone = %q, %v; clones %v", dir, ok, clones)
 	}
 	if len(clones) != 1 {
-		t.Errorf("clones = %v, want only memorit", clones)
+		t.Errorf("clones = %v, want only museum", clones)
 	}
 }
 

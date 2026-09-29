@@ -79,9 +79,9 @@ Lists the projects in `~/projects`, most recently opened or changed first, with 
 
 ```sh
 ngt open                   # pick a project, then an IDE
-ngt open memorit           # start filtered; a single match goes straight to the IDE box
+ngt open museum            # start filtered; a single match goes straight to the IDE box
 ngt open --root ~/work     # another projects folder
-ngt open | grep trip       # plain list, opens nothing
+ngt open | grep weather    # plain list, opens nothing
 ```
 
 IDEs are found by their app bundle in `/Applications` and `~/Applications`: VS Code, VSCodium, Cursor, Windsurf, Zed, WebStorm, GoLand, IntelliJ IDEA, PyCharm, Rider, Android Studio, Xcode, Sublime Text and Nova. Xcode opens the project's `.xcworkspace` or `.xcodeproj` (including a React Native app's `ios/` one), and Android Studio opens a React Native app's `android/` folder.

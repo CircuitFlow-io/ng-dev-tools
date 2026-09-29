@@ -105,10 +105,10 @@ func TestOpenUsesTheAppBundle(t *testing.T) {
 	runner := &macostest.Runner{}
 	cursor := IDE{Name: "Cursor", AppPath: "/Applications/Cursor.app"}
 
-	if err := Open(context.Background(), runner, cursor, "/p/memorit"); err != nil {
+	if err := Open(context.Background(), runner, cursor, "/p/museum"); err != nil {
 		t.Fatal(err)
 	}
-	if calls := runner.Calls(); len(calls) != 1 || calls[0] != "open -a /Applications/Cursor.app /p/memorit" {
+	if calls := runner.Calls(); len(calls) != 1 || calls[0] != "open -a /Applications/Cursor.app /p/museum" {
 		t.Errorf("calls = %q", calls)
 	}
 }

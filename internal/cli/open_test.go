@@ -13,7 +13,7 @@ import (
 
 func TestPrintProjectsFiltersByQuery(t *testing.T) {
 	root := t.TempDir()
-	for _, name := range []string{"memorit", "multi-app", "trip-planner"} {
+	for _, name := range []string{"museum", "home-app", "weather"} {
 		if err := os.MkdirAll(filepath.Join(root, name), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -31,7 +31,7 @@ func TestPrintProjectsFiltersByQuery(t *testing.T) {
 	if len(lines) != 3 || !strings.HasPrefix(lines[0], "PROJECT") {
 		t.Fatalf("output:\n%s", out.String())
 	}
-	if strings.Contains(out.String(), "trip-planner") {
+	if strings.Contains(out.String(), "weather") {
 		t.Errorf("unmatched project printed:\n%s", out.String())
 	}
 }

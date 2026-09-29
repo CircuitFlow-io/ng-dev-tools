@@ -9,7 +9,7 @@ import (
 
 // Project is a folder holding one codebase.
 type Project struct {
-	// Name is the path relative to the projects folder, e.g. "trip-plan/trip-plan-app".
+	// Name is the path relative to the projects folder, e.g. "blog/blog-app".
 	Name    string
 	Path    string
 	Git     bool
@@ -35,7 +35,7 @@ func (p Project) ActivityVerb() string {
 }
 
 // Matches reports whether query's characters appear in name in order, ignoring case,
-// so "tpa" matches "trip-plan/trip-plan-app".
+// so "bba" matches "blog/blog-app".
 func Matches(name, query string) bool {
 	name, query = strings.ToLower(name), strings.ToLower(query)
 	for query != "" {

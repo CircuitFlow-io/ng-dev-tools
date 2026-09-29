@@ -23,8 +23,8 @@ var (
 
 var sampleProjects = []projects.Project{
 	{Name: "ng-dev-tools", Path: "/p/ng-dev-tools", Git: true, Branch: "main", Changed: time.Now()},
-	{Name: "memorit", Path: "/p/memorit", Git: true, Branch: "chore/upgrade", Changed: time.Now().Add(-2 * time.Hour)},
-	{Name: "multi-app", Path: "/p/multi-app", Changed: time.Now().Add(-48 * time.Hour)},
+	{Name: "museum", Path: "/p/museum", Git: true, Branch: "chore/upgrade", Changed: time.Now().Add(-2 * time.Hour)},
+	{Name: "home-app", Path: "/p/home-app", Changed: time.Now().Add(-48 * time.Hour)},
 }
 
 func scanned(t *testing.T, cfg Config) Model {
@@ -76,7 +76,7 @@ func TestTypingFiltersInsteadOfMoving(t *testing.T) {
 
 	m = press(t, m, tea.KeyPressMsg{Code: tea.KeyBackspace})
 	if names := len(m.list.Shown()); names != 2 {
-		t.Errorf("after backspace %d projects shown, want memorit and multi-app", names)
+		t.Errorf("after backspace %d projects shown, want museum and home-app", names)
 	}
 	m = press(t, m, esc)
 	if m.list.Query() != "" || m.state != stateChoosingProject {
@@ -88,14 +88,14 @@ func TestEnterShowsIDEBoxOnTheLastUsedIDE(t *testing.T) {
 	m := scanned(t, Config{State: projects.State{IDE: zed.AppPath}})
 	m = press(t, m, down, enter)
 
-	if m.state != stateChoosingIDE || m.project.Name != "memorit" {
+	if m.state != stateChoosingIDE || m.project.Name != "museum" {
 		t.Fatalf("state %v, project %q", m.state, m.project.Name)
 	}
 	if m.picker.Current() != zed {
 		t.Errorf("preselected %v, want Zed", m.picker.Current())
 	}
 	box := view(m)
-	for _, want := range []string{"Open memorit with", "● Zed 1.20", "default", "○ Cursor 3.22"} {
+	for _, want := range []string{"Open museum with", "● Zed 1.20", "default", "○ Cursor 3.22"} {
 		if !strings.Contains(box, want) {
 			t.Errorf("box is missing %q:\n%s", want, box)
 		}
@@ -103,11 +103,11 @@ func TestEnterShowsIDEBoxOnTheLastUsedIDE(t *testing.T) {
 }
 
 func TestIDEBoxPrefersTheProjectsOwnIDE(t *testing.T) {
-	state := projects.State{IDE: zed.AppPath, ProjectIDEs: map[string]string{"/p/memorit": xcode.AppPath}}
+	state := projects.State{IDE: zed.AppPath, ProjectIDEs: map[string]string{"/p/museum": xcode.AppPath}}
 	m := press(t, scanned(t, Config{State: state}), down, enter)
 
 	if m.picker.Current() != xcode {
-		t.Errorf("preselected %v, want Xcode, the IDE memorit was last opened in", m.picker.Current())
+		t.Errorf("preselected %v, want Xcode, the IDE museum was last opened in", m.picker.Current())
 	}
 	box := view(m)
 	if !strings.Contains(box, "last used") || strings.Contains(box, "default") {
@@ -160,21 +160,21 @@ func TestSingleIDESkipsTheBox(t *testing.T) {
 }
 
 func TestQueryWithOneMatchGoesToTheBox(t *testing.T) {
-	m := scanned(t, Config{Query: "memo"})
+	m := scanned(t, Config{Query: "muse"})
 
-	if m.state != stateChoosingIDE || m.project.Name != "memorit" {
+	if m.state != stateChoosingIDE || m.project.Name != "museum" {
 		t.Errorf("state %v, project %q", m.state, m.project.Name)
 	}
 }
 
 func TestDirtyMarker(t *testing.T) {
 	m := scanned(t, Config{})
-	next, _ := m.Update(projectlist.DirtyMsg{Path: "/p/memorit", Dirty: true})
+	next, _ := m.Update(projectlist.DirtyMsg{Path: "/p/museum", Dirty: true})
 	m = next.(Model)
 
 	for _, line := range strings.Split(view(m), "\n") {
-		if strings.Contains(line, "memorit") && !strings.Contains(line, "●") {
-			t.Errorf("memorit has no dirty marker: %q", line)
+		if strings.Contains(line, "museum") && !strings.Contains(line, "●") {
+			t.Errorf("museum has no dirty marker: %q", line)
 		}
 		if strings.Contains(line, "ng-dev-tools") && strings.Contains(line, "●") {
 			t.Errorf("clean project marked dirty: %q", line)
@@ -198,7 +198,7 @@ func TestNarrowTerminalDropsThePathColumn(t *testing.T) {
 	m = next.(Model)
 
 	screen := view(m)
-	if strings.Contains(screen, "PATH") || strings.Contains(screen, "/p/memorit") {
+	if strings.Contains(screen, "PATH") || strings.Contains(screen, "/p/museum") {
 		t.Errorf("path column shown at 60 columns:\n%s", screen)
 	}
 	if !strings.Contains(screen, "chore/upgrade") {
