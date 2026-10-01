@@ -58,7 +58,7 @@ func refCell(p pulls.PR, style lipgloss.Style) ui.Cell {
 
 // titleCell is the title, followed by the author when it is someone else's pull request.
 func titleCell(p pulls.PR, viewer string, style lipgloss.Style) ui.Cell {
-	c := ui.Cell{ui.NewSpan(p.Title, style)}
+	c := ui.TicketCell(p.Title, style)
 	if p.Author != viewer {
 		c = append(c, ui.NewSpan("  @"+p.Author, ui.Muted))
 	}

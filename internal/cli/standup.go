@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -47,7 +46,7 @@ When output is not a terminal, the report is printed instead; --json prints it a
 			return runStandup(cmd.Context(), cmd.OutOrStdout(), resolveOutput(cmd), flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
 	cmd.Flags().StringVar(&flags.since, "since", "", "start of the report: today, yesterday, monday, 2026-09-28, 3d or 2w (default the last day you worked)")
 	return cmd
 }
@@ -57,10 +56,7 @@ func runStandup(ctx context.Context, out io.Writer, mode outputMode, flags stand
 	if err != nil {
 		return err
 	}
-	root := flags.root
-	if root == "" {
-		root = filepath.Join(home, defaultProjectsDir)
-	}
+	root := projectsRoot(ctx, flags.root, home)
 	var since time.Time
 	if flags.since != "" {
 		if since, err = standup.ParseSince(flags.since, time.Now()); err != nil {

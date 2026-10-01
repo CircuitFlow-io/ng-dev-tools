@@ -66,7 +66,7 @@ func codeLines(item todos.Item, code []todos.SourceLine, width int) []string {
 		number := ui.PadLeft(strconv.Itoa(l.Number), numberWidth)
 		text := strings.ReplaceAll(l.Text, "\t", strings.Repeat(" ", tabWidth))
 		if l.Number == item.Line {
-			lines = append(lines, ui.FitLine(markerStyles[item.Marker].Render(number)+ui.Muted.Render(codeSeparator)+markedLine.Render(text), width))
+			lines = append(lines, ui.FitLine(markerStyles[item.Marker].Render(number)+ui.Muted.Render(codeSeparator)+ui.RenderTickets(text, markedLine), width))
 			continue
 		}
 		lines = append(lines, ui.FitLine(ui.Muted.Render(number+codeSeparator+text), width))

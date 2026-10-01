@@ -202,6 +202,21 @@ Sessions are read from `~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects`. I
 
 Keys: type to search, `↑/↓` move, `enter` resume, `esc` clear the search or quit.
 
+### `ngt settings`
+
+Shows and changes ngt's settings, kept in `~/.config/ngt/settings.json`.
+
+```sh
+ngt settings                                  # every setting, its value and what it does
+ngt settings set projects-dir ~/work
+ngt settings set jira-host acme.atlassian.net
+ngt settings unset jira-host                  # back to the default
+cd "$(ngt settings get projects-dir)"
+```
+
+- `projects-dir` is the folder that holds your projects, `~/projects` by default. `open`, `run`, `status`, `prs`, `env`, `todo`, `standup` and `claude sessions` read it, and `--root` still overrides it for one run. `clean` searches it for stale build folders alongside `~/Developer`, `~/code`, `~/src` and `~/workspace`. It must be an existing folder; a relative path or a quoted `~` is resolved when you set it.
+- `jira-host` is your Jira site. Ticket keys such as `TS-234455` or `COREX-344` in branch names, commit subjects, pull request titles, session titles and TODO notes become underlined links to `https://<jira-host>/browse/<key>`, clickable in terminals that support links (cmd+click in iTerm2, Ghostty, WezTerm or Kitty). It takes a host or any address on the site, such as a ticket's page, and keeps a folder Jira is served from (`jira.example.com/jira`). A key is any uppercase project key, a dash and a number, so the odd `UTF-8` gets a link too.
+
 ## Output for scripts and AI agents
 
 Every command takes `--json`. It never opens the interactive screen or asks anything, even in a terminal, and prints one JSON object to stdout with everything the screen shows, details box included. Warnings go to stderr, and the exit status is the same as without it (`ngt doctor` still exits 1 when a check fails).

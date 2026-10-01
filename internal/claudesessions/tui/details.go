@@ -68,7 +68,7 @@ func titleText(s claudesessions.Session) string {
 	if s.Title == "" {
 		return ui.Bold.Render(untitled)
 	}
-	return ui.Bold.Render(s.Title)
+	return ui.RenderTickets(s.Title, ui.Bold)
 }
 
 func folderLine(s claudesessions.Session, missing bool, home string) string {

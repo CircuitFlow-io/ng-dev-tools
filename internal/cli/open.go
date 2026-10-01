@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -21,8 +20,6 @@ import (
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects/tui"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
-
-const defaultProjectsDir = "projects"
 
 var errNoIDE = errors.New("no supported IDE found in /Applications or ~/Applications")
 
@@ -52,7 +49,7 @@ opened.`,
 			return runOpen(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, strings.Join(args, ""), flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
 	return cmd
 }
 
@@ -61,10 +58,7 @@ func runOpen(ctx context.Context, out, notices io.Writer, mode outputMode, query
 	if err != nil {
 		return err
 	}
-	root := flags.root
-	if root == "" {
-		root = filepath.Join(home, defaultProjectsDir)
-	}
+	root := projectsRoot(ctx, flags.root, home)
 	store := projects.DefaultStore(home, os.Getenv)
 	state, err := store.Load()
 	if err != nil {

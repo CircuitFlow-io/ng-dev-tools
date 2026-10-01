@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -42,7 +41,7 @@ When output is not a terminal, the table is printed instead; --json prints every
 			return runEnvCheck(cmd.Context(), cmd.OutOrStdout(), resolveOutput(cmd), flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
 	return cmd
 }
 
@@ -51,10 +50,7 @@ func runEnvCheck(ctx context.Context, out io.Writer, mode outputMode, flags envF
 	if err != nil {
 		return err
 	}
-	root := flags.root
-	if root == "" {
-		root = filepath.Join(home, defaultProjectsDir)
-	}
+	root := projectsRoot(ctx, flags.root, home)
 	runner := macos.ExecRunner{}
 	scan := func(ctx context.Context) ([]envfiles.Set, error) { return envfiles.ScanAll(ctx, runner, root) }
 	if mode != outputTUI {

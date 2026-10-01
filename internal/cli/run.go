@@ -7,7 +7,6 @@ import (
 	"io"
 	"maps"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -69,7 +68,7 @@ When output is not a terminal, or with --json, the scripts are printed instead a
 			return runRun(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, args, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
 	cmd.Flags().BoolVar(&flags.last, "last", false, "rerun the last script run in this project, or anywhere when outside one")
 	return cmd
 }
@@ -136,11 +135,8 @@ func currentPackage(ws scripts.Workspace, cwd string) string {
 }
 
 func (e runEnv) pick(ctx context.Context, ws *scripts.Workspace, cwd string, words []string, root string) error {
-	if root == "" {
-		root = filepath.Join(e.home, defaultProjectsDir)
-	}
 	cfg := tui.Config{
-		Root:       root,
+		Root:       projectsRoot(ctx, root, e.home),
 		Home:       e.home,
 		Workspace:  ws,
 		CurrentDir: cwd,
