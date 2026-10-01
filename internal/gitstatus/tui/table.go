@@ -175,7 +175,7 @@ func (t table) row(index int, l layout) string {
 	row := painter.Cursor() +
 		glyphCell(r).Render(painter, glyphWidth) +
 		ui.Cell{ui.NewSpan(ui.Truncate(r.Name, l.name-columnGap), nameStyle)}.Render(painter, l.name) +
-		ui.Cell{ui.NewSpan(ui.Truncate(r.Branch, l.branch-columnGap), branchStyle)}.Render(painter, l.branch) +
+		ui.TicketCell(r.Branch, branchStyle).Truncate(l.branch-columnGap).Render(painter, l.branch) +
 		changesCell(r).Render(painter, l.changes) +
 		syncCell(r, t.syncState(r)).Render(painter, l.sync) +
 		lastCommitCell(r, t.now).Render(painter, l.lastCommit)

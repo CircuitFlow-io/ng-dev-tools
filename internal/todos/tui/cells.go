@@ -39,7 +39,7 @@ func noteCell(item todos.Item) ui.Cell {
 	if item.Note == "" {
 		return ui.Cell{ui.NewSpan("no note", ui.Muted)}
 	}
-	return ui.Cell{ui.NewSpan(item.Note, plain)}
+	return ui.TicketCell(item.Note, plain)
 }
 
 func projectCell(item todos.Item) ui.Cell {

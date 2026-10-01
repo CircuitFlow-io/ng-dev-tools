@@ -174,7 +174,7 @@ func branchKinds(r gitstatus.Repo) string {
 
 // branchCell is a branch with its state, such as "main ⇣2" or "spike not pushed".
 func branchCell(b gitstatus.Branch) ui.Cell {
-	c := ui.Cell{ui.NewSpan(b.Name+" ", plain)}
+	c := append(ui.TicketCell(b.Name, plain), ui.NewSpan(" ", plain))
 	switch {
 	case b.Gone:
 		return append(c, ui.NewSpan("remote gone", ui.Warning))

@@ -53,7 +53,7 @@ When output is not a terminal, the table is printed instead; --json prints every
 			return runStatus(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
 	cmd.Flags().BoolVar(&flags.fetch, "fetch", false, "git fetch every repository first, to know what is behind")
 	return cmd
 }
@@ -63,10 +63,7 @@ func runStatus(ctx context.Context, out, notices io.Writer, mode outputMode, fla
 	if err != nil {
 		return err
 	}
-	root := flags.root
-	if root == "" {
-		root = filepath.Join(home, defaultProjectsDir)
-	}
+	root := projectsRoot(ctx, flags.root, home)
 	runner := macos.ExecRunner{}
 	switch mode {
 	case outputText:

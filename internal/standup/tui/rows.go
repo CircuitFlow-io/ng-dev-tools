@@ -97,7 +97,7 @@ func projectRows(p standup.Project, since, now time.Time) []row {
 			rows = append(rows, row{
 				kind:   commitRow,
 				indent: commitIndent,
-				left:   ui.Cell{ui.NewSpan(c.Short()+" ", ui.Muted), ui.NewSpan(c.Subject, plain)},
+				left:   append(ui.Cell{ui.NewSpan(c.Short()+" ", ui.Muted)}, ui.TicketCell(c.Subject, plain)...),
 				right:  ui.Cell{ui.NewSpan(when(c.At, now), ui.Muted)},
 				url:    c.URL,
 				what:   c.Short(),
@@ -133,7 +133,7 @@ func groupRowFor(g standup.Group, p standup.Project, since time.Time) row {
 		return row{
 			kind:   groupRow,
 			indent: groupIndent,
-			left:   ui.Cell{ui.NewSpan(fmt.Sprintf("#%d ", g.PR.Number), accent), ui.NewSpan(g.PR.Title, plain)},
+			left:   append(ui.Cell{ui.NewSpan(fmt.Sprintf("#%d ", g.PR.Number), accent)}, ui.TicketCell(g.PR.Title, plain)...),
 			right:  prEvents(*g.PR, since),
 			url:    g.PR.URL,
 			what:   fmt.Sprintf("#%d", g.PR.Number),
@@ -149,7 +149,7 @@ func groupRowFor(g standup.Group, p standup.Project, since time.Time) row {
 			what:   g.DefaultBranch,
 		}
 	}
-	r := row{kind: groupRow, indent: groupIndent, left: ui.Cell{ui.NewSpan(g.Branch, plain)}, what: g.Branch}
+	r := row{kind: groupRow, indent: groupIndent, left: ui.TicketCell(g.Branch, plain), what: g.Branch}
 	if pushed(g) {
 		r.right = ui.Cell{ui.NewSpan("no PR", ui.Muted)}
 		r.url = treeURL(p, g.Branch)

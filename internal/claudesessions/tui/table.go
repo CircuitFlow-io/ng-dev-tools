@@ -174,7 +174,7 @@ func (t table) row(index int, l layout) string {
 		painter.Paint(promptStyle.Width(l.prompt), ui.Truncate(s.FirstPrompt, l.prompt-columnGap)) +
 		painter.Paint(projectStyle.Width(l.project), ui.TruncatePath(t.project(s), l.project-columnGap))
 	if l.branch > 0 {
-		row += painter.Paint(accent.Width(l.branch), ui.Truncate(s.Branch, l.branch-columnGap))
+		row += ui.TicketCell(s.Branch, accent).Truncate(l.branch-columnGap).Render(painter, l.branch)
 	}
 	row += painter.Paint(promptCount.Width(l.prompts-columnGap), strconv.Itoa(s.Prompts)) + painter.Paint(plain, strings.Repeat(" ", columnGap))
 	if l.model > 0 {

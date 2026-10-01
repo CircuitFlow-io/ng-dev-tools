@@ -32,7 +32,7 @@ func details(p pulls.PR, ok bool, clone string, home string, now time.Time, widt
 		return detailBox.Width(width).Render(padLines([]string{ui.Muted.Render("No pull request selected")}))
 	}
 	lines := []string{
-		ui.FitLine(ui.Bold.Render(p.Ref())+"  "+p.Title, inner),
+		ui.FitLine(ui.Bold.Render(p.Ref())+"  "+ui.RenderTickets(p.Title, plain), inner),
 		ui.FitLine(ui.Muted.Render(origin(p, now)), inner),
 		ui.FitLine(sizeLine(p, clone, home), inner),
 	}

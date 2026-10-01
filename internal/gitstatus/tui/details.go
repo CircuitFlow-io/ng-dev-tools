@@ -42,7 +42,7 @@ func details(r gitstatus.Repo, ok bool, s syncState, now time.Time, width int) s
 }
 
 func headerLine(r gitstatus.Repo, s syncState, now time.Time) string {
-	line := ui.Bold.Render(r.Name) + "  " + branchStyle.Render(r.Branch)
+	line := ui.Bold.Render(r.Name) + "  " + ui.RenderTickets(r.Branch, branchStyle)
 	facts := []string{upstreamFact(r)}
 	if fetched := fetchFact(r, s, now); fetched != "" {
 		facts = append(facts, fetched)
@@ -190,7 +190,7 @@ func otherSections(r gitstatus.Repo, now time.Time) []ui.Section {
 	if r.Unpushed > 0 {
 		s := ui.Section{Title: sectionLabel.Render("NOT PUSHED") + "  " + ui.Count(r.Unpushed, "commit")}
 		for _, c := range r.UnpushedCommits {
-			s.Items = append(s.Items, accent.Render(c.Hash)+" "+c.Subject)
+			s.Items = append(s.Items, accent.Render(c.Hash)+" "+ui.RenderTickets(c.Subject, plain))
 		}
 		sections = append(sections, s)
 	}

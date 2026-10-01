@@ -100,7 +100,7 @@ func prLine(url string, lookup prLookup) string {
 		return ui.Muted.Render(unknownMark + " " + prRef(url))
 	}
 	state := stateOf(pr)
-	return state.style.Render(state.mark+" "+ui.PadRight(state.word, stateWidth)) + "#" + strconv.Itoa(pr.Number) + "  " + pr.Title
+	return state.style.Render(state.mark+" "+ui.PadRight(state.word, stateWidth)) + "#" + strconv.Itoa(pr.Number) + "  " + ui.RenderTickets(pr.Title, plain)
 }
 
 // prInline lists the pull requests on one line, the latest first, for a narrow box.

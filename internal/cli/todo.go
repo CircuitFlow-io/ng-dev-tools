@@ -53,7 +53,7 @@ included, as JSON.`,
 			return runTodo(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
 	cmd.Flags().BoolVar(&flags.mine, "mine", false, "only print the lines you wrote, when output is not a terminal or with --json")
 	return cmd
 }
@@ -63,10 +63,7 @@ func runTodo(ctx context.Context, out, notices io.Writer, mode outputMode, flags
 	if err != nil {
 		return err
 	}
-	root := flags.root
-	if root == "" {
-		root = filepath.Join(home, defaultProjectsDir)
-	}
+	root := projectsRoot(ctx, flags.root, home)
 	runner := macos.ExecRunner{}
 	find := func(ctx context.Context) ([]todos.Item, map[string]error, error) {
 		return todos.FindAll(ctx, runner, root)

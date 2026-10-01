@@ -29,7 +29,8 @@ const (
 	logTimeLayout    = "20060102-150405"
 )
 
-var defaultProjectDirs = []string{"projects", "Developer", "code", "src", "workspace"}
+// commonProjectDirs are searched for stale build artifacts besides the projects-dir setting.
+var commonProjectDirs = []string{"Developer", "code", "src", "workspace"}
 
 type cleanFlags struct {
 	dryRun      bool
@@ -65,7 +66,7 @@ When output is not a terminal, or with --json, what was found is printed and not
 	f.BoolVar(&flags.dryRun, "dry-run", false, "go through the whole flow without deleting anything")
 	f.StringVar(&flags.olderThan, "older-than", defaultOlderThan, "treat things unused for this long as stale (e.g. 30d, 12w, 720h)")
 	f.StringSliceVar(&flags.categories, "category", categoryKeys(), "categories to scan")
-	f.StringSliceVar(&flags.projectDirs, "projects-dir", nil, "folders searched for stale project build artifacts (default ~/projects, ~/Developer, ~/code, ~/src, ~/workspace)")
+	f.StringSliceVar(&flags.projectDirs, "projects-dir", nil, "folders searched for stale project build artifacts (default: the projects-dir setting, ~/Developer, ~/code, ~/src, ~/workspace)")
 	f.StringVar(&flags.minSize, "min-size", defaultMinSize, "minimum size of a large old file")
 	return cmd
 }
@@ -75,7 +76,7 @@ func runClean(ctx context.Context, out io.Writer, mode outputMode, flags cleanFl
 	if err != nil {
 		return err
 	}
-	env, categories, err := flags.env(home)
+	env, categories, err := flags.env(home, settingsFrom(ctx).ProjectsRoot(home))
 	if err != nil {
 		return err
 	}
@@ -103,7 +104,7 @@ func runClean(ctx context.Context, out io.Writer, mode outputMode, flags cleanFl
 	return err
 }
 
-func (f cleanFlags) env(home string) (cleanup.Env, []cleanup.Category, error) {
+func (f cleanFlags) env(home, projectsRoot string) (cleanup.Env, []cleanup.Category, error) {
 	staleAfter, err := parseAge(f.olderThan)
 	if err != nil {
 		return cleanup.Env{}, nil, fmt.Errorf("--older-than: %w", err)
@@ -120,7 +121,7 @@ func (f cleanFlags) env(home string) (cleanup.Env, []cleanup.Category, error) {
 		Home:             home,
 		Now:              time.Now(),
 		StaleAfter:       staleAfter,
-		ProjectDirs:      projectDirs(home, f.projectDirs),
+		ProjectDirs:      projectDirs(home, projectsRoot, f.projectDirs),
 		LargeFileMinSize: int64(minSize),
 		Runner:           macos.ExecRunner{},
 	}
@@ -166,13 +167,15 @@ func categoryKeys() []string {
 	return keys
 }
 
-func projectDirs(home string, given []string) []string {
+func projectDirs(home, projectsRoot string, given []string) []string {
 	if len(given) > 0 {
 		return given
 	}
-	dirs := make([]string, 0, len(defaultProjectDirs))
-	for _, name := range defaultProjectDirs {
-		dirs = append(dirs, filepath.Join(home, name))
+	dirs := []string{projectsRoot}
+	for _, name := range commonProjectDirs {
+		if dir := filepath.Join(home, name); dir != projectsRoot {
+			dirs = append(dirs, dir)
+		}
 	}
 	return dirs
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -50,7 +49,7 @@ requests are printed instead; --json prints everything, checks and reviews inclu
 			return runPRs(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your local clones (default ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your local clones (default: the projects-dir setting, ~/projects)")
 	return cmd
 }
 
@@ -59,10 +58,7 @@ func runPRs(ctx context.Context, out, notices io.Writer, mode outputMode, flags 
 	if err != nil {
 		return err
 	}
-	root := flags.root
-	if root == "" {
-		root = filepath.Join(home, defaultProjectsDir)
-	}
+	root := projectsRoot(ctx, flags.root, home)
 	runner := macos.ExecRunner{}
 	switch mode {
 	case outputText:

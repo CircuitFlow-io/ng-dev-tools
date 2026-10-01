@@ -6,7 +6,6 @@ import (
 	"io"
 	"maps"
 	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -88,7 +87,7 @@ func runClaudeSessions(ctx context.Context, out io.Writer, mode outputMode, quer
 		return pulls.Lookup(ctx, macos.ExecRunner{}, urls)
 	}
 	cfg := tui.Config{
-		Dir: dir, Home: home, Root: filepath.Join(home, defaultProjectsDir), Query: query,
+		Dir: dir, Home: home, Root: projectsRoot(ctx, "", home), Query: query,
 		Find: find, Live: live, PRs: lookUpPRs,
 	}
 	final, err := tea.NewProgram(tui.New(ctx, cfg)).Run()
