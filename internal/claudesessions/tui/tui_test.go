@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/claudesessions"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/pulls"
 )
 
 func sampleSessions(project string) []claudesessions.Session {
@@ -83,8 +84,9 @@ func TestListShowsEachSessionsFacts(t *testing.T) {
 
 	for _, want := range []string{
 		"2 sessions in 2 folders", "implement ngt claude sessions", "feat/claude-sessions", "12", "Opus 5.5", "3 days ago", "ng-dev-tools",
-		"Global sessions list  s1", "~/projects/ng-dev-tools · on main, feat/claude-sessions", "Opus 5.5 (40 replies), Haiku 4.5 (2 replies)",
-		"https://github.com/o/r/pull/9", "Last    open a PR",
+		"Global sessions list", "~/projects/ng-dev-tools · on main, feat/claude-sessions", "s1 │",
+		"When    started ", "Size    12 prompts", "Models  Opus 5.5 (40 replies), Haiku 4.5 (2 replies)",
+		"Tokens  not recorded", "PULL REQUESTS  1", "· o/r#9", "First   implement ngt claude sessions", "Last    open a PR",
 	} {
 		if !strings.Contains(screen, want) {
 			t.Errorf("screen is missing %q:\n%s", want, screen)
@@ -248,16 +250,13 @@ func TestLiveStatusRefreshesUntilTheScreenCloses(t *testing.T) {
 
 func TestDetailsShowTheTokensUsed(t *testing.T) {
 	m := loaded(t, Config{})
-	if strings.Contains(view(m), "Tokens") {
-		t.Errorf("a session without usage shows tokens:\n%s", view(m))
-	}
-
 	s1 := m.table.results[0].Session
 	s1.Usage = claudesessions.Usage{Input: 82, CacheWrite: 109_248, CacheRead: 4_874_452, Output: 31_118, Context: 148_841}
 	m.table.results[0].Session = s1
-	want := "Tokens  148k context · 82 in · 31k out · 4.9M cache read · 109k cache written"
-	if !strings.Contains(view(m), want) {
-		t.Errorf("screen is missing %q:\n%s", want, view(m))
+	for _, want := range []string{"Tokens  148k context · 31k out · 82 in", "Cache   4.9M read · 109k written"} {
+		if !strings.Contains(view(m), want) {
+			t.Errorf("screen is missing %q:\n%s", want, view(m))
+		}
 	}
 
 	next, _ := m.Update(liveMsg{usage: map[string]claudesessions.Usage{"s1": {Context: 150_000, Output: 32_000}}})
@@ -306,5 +305,77 @@ func appendFile(t *testing.T, path, text string) {
 	defer f.Close()
 	if _, err := f.WriteString(text); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDetailsShowWhereEachPullRequestStands(t *testing.T) {
+	const (
+		first  = "https://github.com/o/r/pull/9"
+		second = "https://github.com/o/r/pull/12"
+		third  = "https://github.com/o/r/pull/15"
+		gone   = "https://github.com/o/r/pull/20"
+		later  = "https://github.com/o/r/pull/21"
+	)
+	cfg := Config{PRs: func(context.Context, []string) (map[string]pulls.Summary, error) { return nil, nil }}
+	m := loaded(t, cfg)
+	s1 := m.table.results[0].Session
+	s1.PRs = []string{gone, later, first, second, third}
+	m.table.results[0].Session = s1
+
+	if !m.prs.pending || !strings.Contains(view(m), "PULL REQUESTS  looking up on GitHub…") {
+		t.Errorf("no lookup under way:\n%s", view(m))
+	}
+	next, _ := m.Update(prsMsg{found: map[string]pulls.Summary{
+		first:  {Number: 9, Title: "Add sessions list", State: pulls.StateMerged},
+		second: {Number: 12, Title: "Try a thing", State: pulls.StateOpen, Draft: true},
+		third:  {Number: 15, Title: "Show status", State: pulls.StateOpen},
+	}})
+	m = next.(Model)
+	screen := view(m)
+
+	for _, want := range []string{
+		"PULL REQUESTS  1 open · 1 draft · 1 merged", "✓ merged  #9  Add sessions list", "○ open    #15  Show status", "◌ draft   #12  Try a thing",
+	} {
+		if !strings.Contains(screen, want) {
+			t.Errorf("screen is missing %q:\n%s", want, screen)
+		}
+	}
+	if strings.Index(screen, "#15") > strings.Index(screen, "#12") {
+		t.Errorf("the latest pull request is not first:\n%s", screen)
+	}
+	if !strings.Contains(screen, "2 more") {
+		t.Errorf("the pull request that does not fit is not counted:\n%s", screen)
+	}
+
+	next, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	if want := "PRs     #15 open · #12 draft · #9 merged · o/r#21 · o/r#20"; !strings.Contains(view(next.(Model)), want) {
+		t.Errorf("narrow screen is missing %q:\n%s", want, view(next.(Model)))
+	}
+}
+
+func TestPullRequestLookupFailureIsShown(t *testing.T) {
+	m := loaded(t, Config{})
+	next, _ := m.Update(prsMsg{err: pulls.ErrNotLoggedIn})
+
+	screen := view(next.(Model))
+	if !strings.Contains(screen, "could not look up on GitHub") || !strings.Contains(screen, "the GitHub CLI is not logged in") {
+		t.Errorf("no failure shown:\n%s", screen)
+	}
+}
+
+func TestLoadingLooksUpEveryPullRequest(t *testing.T) {
+	var asked []string
+	cfg := Config{PRs: func(_ context.Context, urls []string) (map[string]pulls.Summary, error) {
+		asked = urls
+		return map[string]pulls.Summary{urls[0]: {Number: 9, State: pulls.StateMerged}}, nil
+	}}
+	_, cmd := New(context.Background(), cfg).Update(foundMsg{sessions: sampleSessions(t.TempDir())})
+	if cmd == nil {
+		t.Fatal("no lookup started")
+	}
+
+	msg, ok := cmd().(prsMsg)
+	if !ok || len(msg.found) != 1 || len(asked) != 1 || asked[0] != "https://github.com/o/r/pull/9" {
+		t.Errorf("asked about %v and got %+v", asked, msg)
 	}
 }

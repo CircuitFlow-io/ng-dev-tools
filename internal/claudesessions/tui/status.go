@@ -46,12 +46,12 @@ func statusStyle(live claudesessions.Live) lipgloss.Style {
 }
 
 // liveSummary says what Claude is doing with an open session, for how long and where, such as
-// "working for 2m in the Claude app (pid 13507)", or "" for a closed one.
+// "● working for 2m in the Claude app (pid 13507)", or "" for a closed one.
 func liveSummary(live claudesessions.Live, now time.Time) string {
 	if live.Activity == claudesessions.Closed {
 		return ""
 	}
-	summary := live.Activity.String()
+	summary := statusCell(live)
 	if live.Activity == claudesessions.Waiting && live.WaitingFor != "" {
 		summary += " on " + live.WaitingFor
 	}

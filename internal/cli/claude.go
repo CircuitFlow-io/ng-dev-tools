@@ -20,6 +20,8 @@ import (
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/claudesessions"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/claudesessions/tui"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/pulls"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
@@ -76,7 +78,13 @@ func runClaudeSessions(ctx context.Context, out io.Writer, query string) error {
 		return printClaudeSessions(ctx, out, find, live, query, home)
 	}
 
-	cfg := tui.Config{Dir: dir, Home: home, Root: filepath.Join(home, defaultProjectsDir), Query: query, Find: find, Live: live}
+	lookUpPRs := func(ctx context.Context, urls []string) (map[string]pulls.Summary, error) {
+		return pulls.Lookup(ctx, macos.ExecRunner{}, urls)
+	}
+	cfg := tui.Config{
+		Dir: dir, Home: home, Root: filepath.Join(home, defaultProjectsDir), Query: query,
+		Find: find, Live: live, PRs: lookUpPRs,
+	}
 	final, err := tea.NewProgram(tui.New(ctx, cfg)).Run()
 	if err != nil {
 		return err
