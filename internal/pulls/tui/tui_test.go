@@ -50,6 +50,7 @@ type fakeActions struct {
 	mu        sync.Mutex
 	opened    []string
 	checkouts []string
+	clones    []string
 	ides      []string
 	logs      []string
 }
@@ -64,6 +65,10 @@ func loaded(t *testing.T, cfg Config, actions *fakeActions) Model {
 	t.Helper()
 	cfg.Root, cfg.Home = "/p", "/home"
 	cfg.OpenURL = func(url string) error { actions.record(&actions.opened, url); return nil }
+	cfg.Clone = func(_ context.Context, repo string) (string, error) {
+		actions.record(&actions.clones, repo)
+		return "/p/" + repo[strings.Index(repo, "/")+1:], nil
+	}
 	cfg.Checkout = func(_ context.Context, dir string, p pulls.PR) error {
 		actions.record(&actions.checkouts, dir+" "+p.Ref())
 		return nil
@@ -176,21 +181,72 @@ func TestEnterOpensTheBrowser(t *testing.T) {
 	}
 }
 
-func TestCheckoutNeedsALocalClone(t *testing.T) {
+func TestCheckoutInTheLocalClone(t *testing.T) {
 	actions := &fakeActions{}
 	m := loaded(t, Config{}, actions)
-	m, _ = press(t, m, key("c"))
-	if len(actions.checkouts) != 0 || !strings.Contains(view(m), "acme/web is not cloned in /p") {
-		t.Errorf("checkouts %q:\n%s", actions.checkouts, view(m))
-	}
 	m, _ = press(t, m, down)
 	m, cmd := press(t, m, key("c"))
 	m = deliver(t, m, cmd)
-	if len(actions.checkouts) != 1 || actions.checkouts[0] != "/p/api acme/api#2" {
-		t.Errorf("checkouts = %q", actions.checkouts)
+	if len(actions.clones) != 0 || !slices.Equal(actions.checkouts, []string{"/p/api acme/api#2"}) {
+		t.Errorf("clones %q, checkouts %q", actions.clones, actions.checkouts)
 	}
 	if !strings.Contains(view(m), "Checked out fast-login in api") {
 		t.Errorf("missing confirmation:\n%s", view(m))
+	}
+}
+
+func TestCheckoutClonesARepositoryNotClonedYet(t *testing.T) {
+	actions := &fakeActions{}
+	m := loaded(t, Config{}, actions)
+	if !strings.Contains(view(m), "c clone ·") {
+		t.Errorf("help should offer to clone:\n%s", view(m))
+	}
+	m, cmd := press(t, m, key("c"))
+	if !strings.Contains(view(m), "Cloning acme/web into /p/web…") {
+		t.Errorf("no progress line:\n%s", view(m))
+	}
+	m = deliver(t, m, cmd)
+	if !slices.Equal(actions.clones, []string{"acme/web"}) || !slices.Equal(actions.checkouts, []string{"/p/web acme/web#9"}) {
+		t.Errorf("clones %q, checkouts %q: want a clone, then a checkout in it", actions.clones, actions.checkouts)
+	}
+	out := view(m)
+	for _, want := range []string{"Cloned acme/web into /p/web and checked out search", "cloned in /p/web", "c check out ·"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("screen lacks %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestCloneFailureIsShown(t *testing.T) {
+	actions := &fakeActions{}
+	m := loaded(t, Config{}, actions)
+	m.cfg.Clone = func(context.Context, string) (string, error) { return "", pulls.ErrFolderTaken }
+	m, cmd := press(t, m, key("c"))
+	m = deliver(t, m, cmd)
+	if len(actions.checkouts) != 0 || !strings.Contains(view(m), "could not clone acme/web into /p/web: already exists") {
+		t.Errorf("checkouts %q:\n%s", actions.checkouts, view(m))
+	}
+}
+
+func TestACloneIsKeptWhenItsCheckoutFails(t *testing.T) {
+	m := loaded(t, Config{}, &fakeActions{})
+	m.cfg.Checkout = func(context.Context, string, pulls.PR) error { return errors.New("no such branch") }
+	m, cmd := press(t, m, key("c"))
+	m = deliver(t, m, cmd)
+	out := view(m)
+	for _, want := range []string{"cloned acme/web into /p/web, but could not check out search: no such branch", "cloned in /p/web"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("screen lacks %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestIDENeedsALocalClone(t *testing.T) {
+	actions := &fakeActions{}
+	m := loaded(t, Config{IDEs: []ide.IDE{cursor}}, actions)
+	m, _ = press(t, m, key("i"))
+	if len(actions.ides) != 0 || !strings.Contains(view(m), "acme/web is not cloned in /p: press c to clone it") {
+		t.Errorf("ides %q:\n%s", actions.ides, view(m))
 	}
 }
 
