@@ -204,18 +204,18 @@ Keys: type to search, `↑/↓` move, `enter` resume, `esc` clear the search or 
 
 ### `ngt settings`
 
-Shows and changes ngt's settings, kept in `~/.config/ngt/settings.json`.
+Shows and changes ngt's settings, kept in `~/.config/ngt/settings.json`. You can also edit that file by hand: it uses the same names (`{"jiraHost": "acme.atlassian.net"}`), every command reads it when it starts, and a misspelt name or an invalid value is reported and ignored.
 
 ```sh
 ngt settings                                  # every setting, its value and what it does
-ngt settings set projects-dir ~/work
-ngt settings set jira-host acme.atlassian.net
-ngt settings unset jira-host                  # back to the default
-cd "$(ngt settings get projects-dir)"
+ngt settings set projectsDir ~/work
+ngt settings set jiraHost acme.atlassian.net
+ngt settings unset jiraHost                   # back to the default
+cd "$(ngt settings get projectsDir)"
 ```
 
-- `projects-dir` is the folder that holds your projects, `~/projects` by default. `open`, `run`, `status`, `prs`, `env`, `todo`, `standup` and `claude sessions` read it, and `--root` still overrides it for one run. `clean` searches it for stale build folders alongside `~/Developer`, `~/code`, `~/src` and `~/workspace`. It must be an existing folder; a relative path or a quoted `~` is resolved when you set it.
-- `jira-host` is your Jira site. Ticket keys such as `TS-234455` or `COREX-344` in branch names, commit subjects, pull request titles, session titles and TODO notes become underlined links to `https://<jira-host>/browse/<key>`, clickable in terminals that support links (cmd+click in iTerm2, Ghostty, WezTerm or Kitty). It takes a host or any address on the site, such as a ticket's page, and keeps a folder Jira is served from (`jira.example.com/jira`). A key is any uppercase project key, a dash and a number, so the odd `UTF-8` gets a link too.
+- `projectsDir` is the folder that holds your projects, `~/projects` by default. `open`, `run`, `status`, `prs`, `env`, `todo`, `standup` and `claude sessions` read it, and `--root` still overrides it for one run. `clean` searches it for stale build folders alongside `~/Developer`, `~/code`, `~/src` and `~/workspace`. It must be an existing folder; a relative path or a quoted `~` is resolved when you set it.
+- `jiraHost` is your Jira site. Ticket keys such as `TS-234455` or `COREX-344` in branch names, commit subjects, pull request titles, session titles and TODO notes become underlined links to `https://<jiraHost>/browse/<key>`, clickable in terminals that support links (cmd+click in iTerm2, Ghostty, WezTerm or Kitty). It takes a host or any address on the site, such as a ticket's page, and keeps a folder Jira is served from (`jira.example.com/jira`). A key is any uppercase project key, a dash and a number, so the odd `UTF-8` gets a link too.
 
 ## Output for scripts and AI agents
 

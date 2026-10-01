@@ -53,7 +53,7 @@ When output is not a terminal, the table is printed instead; --json prints every
 			return runStatus(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projectsDir setting, ~/projects)")
 	cmd.Flags().BoolVar(&flags.fetch, "fetch", false, "git fetch every repository first, to know what is behind")
 	return cmd
 }

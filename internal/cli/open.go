@@ -49,7 +49,7 @@ opened.`,
 			return runOpen(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, strings.Join(args, ""), flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projectsDir setting, ~/projects)")
 	return cmd
 }
 

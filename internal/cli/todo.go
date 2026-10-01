@@ -53,7 +53,7 @@ included, as JSON.`,
 			return runTodo(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projectsDir setting, ~/projects)")
 	cmd.Flags().BoolVar(&flags.mine, "mine", false, "only print the lines you wrote, when output is not a terminal or with --json")
 	return cmd
 }
