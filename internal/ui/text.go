@@ -2,34 +2,58 @@ package ui
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
-const ellipsis = "…"
+const (
+	ellipsis = "…"
+	// maxBytesPerCell bounds how much of a long string is measured to fill a width: more than any
+	// grapheme takes per cell in practice, so a pasted megabyte costs no more than a line of it.
+	maxBytesPerCell = 32
+	escape          = "\x1b"
+)
 
 // Truncate shortens s to at most width cells, keeping the start.
 func Truncate(s string, width int) string {
-	if width <= 0 || lipgloss.Width(s) <= width {
+	if width <= 0 {
 		return s
 	}
-	runes := []rune(s)
-	for len(runes) > 0 && lipgloss.Width(string(runes))+1 > width {
-		runes = runes[:len(runes)-1]
+	head, cut := head(s, width*maxBytesPerCell)
+	if !cut {
+		return ansi.Truncate(s, width, ellipsis)
 	}
-	return string(runes) + ellipsis
+	return ansi.Truncate(head, width-lipgloss.Width(ellipsis), "") + ellipsis
+}
+
+// head is the start of s up to limit bytes, cut at a character, and whether anything was left out.
+// Text with escape codes is kept whole, since a cut could break one.
+func head(s string, limit int) (string, bool) {
+	if len(s) <= limit || strings.Contains(s, escape) {
+		return s, false
+	}
+	for limit > 0 && !utf8.RuneStart(s[limit]) {
+		limit--
+	}
+	return s[:limit], true
 }
 
 // TruncatePath shortens path to at most width cells, keeping the end, which is its informative part.
 func TruncatePath(path string, width int) string {
-	if width <= 0 || lipgloss.Width(path) <= width {
+	pathWidth := lipgloss.Width(path)
+	if width <= 0 || pathWidth <= width {
 		return path
 	}
-	runes := []rune(path)
-	for len(runes) > 0 && lipgloss.Width(string(runes))+1 > width {
-		runes = runes[1:]
+	room := width - lipgloss.Width(ellipsis)
+	kept := ansi.TruncateLeft(path, pathWidth-room, "")
+	for lipgloss.Width(kept) > room {
+		// TruncateLeft keeps a wide character the cut falls inside.
+		_, size := utf8.DecodeRuneInString(kept)
+		kept = kept[size:]
 	}
-	return ellipsis + string(runes)
+	return ellipsis + kept
 }
 
 // PadRight pads s with spaces to width cells.

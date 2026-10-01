@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // transcript is a session with the kinds of lines Claude Code writes, in file order.
@@ -276,5 +277,20 @@ func TestReadSkipsLinesTooBigToHold(t *testing.T) {
 	}
 	if s.Prompts != 2 || s.FirstPrompt != "before" || s.LastPrompt != "after" {
 		t.Errorf("prompts %d, first %q, last %q: want the lines around the huge one", s.Prompts, s.FirstPrompt, s.LastPrompt)
+	}
+}
+
+func TestAPastedPromptIsShortenedForDisplayButSearchedWhole(t *testing.T) {
+	pasted := "find the bug " + strings.Repeat("é log line ", maxPreviewBytes) + "needle"
+	line := `{"type":"user","cwd":"/p/api","timestamp":"2026-09-01T10:00:00Z","message":{"role":"user","content":"` + pasted + `"}}`
+	s, err := Read(writeTranscript(t, t.TempDir(), StorageName("/p/api"), "paste", line))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.FirstPrompt) > maxPreviewBytes || !strings.HasPrefix(s.FirstPrompt, "find the bug é") || !utf8.ValidString(s.FirstPrompt) {
+		t.Errorf("first prompt is %d bytes: %.40q", len(s.FirstPrompt), s.FirstPrompt)
+	}
+	if results := NewIndex([]Session{s}).Search("needle"); len(results) != 1 {
+		t.Error("the end of the pasted prompt should still be searchable")
 	}
 }
