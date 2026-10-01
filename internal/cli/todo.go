@@ -53,7 +53,7 @@ included, as JSON.`,
 			return runTodo(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projectsDir setting, ~/projects)")
 	cmd.Flags().BoolVar(&flags.mine, "mine", false, "only print the lines you wrote, when output is not a terminal or with --json")
 	return cmd
 }
@@ -88,7 +88,7 @@ func runTodo(ctx context.Context, out, notices io.Writer, mode outputMode, flags
 		Root:        root,
 		Home:        home,
 		Find:        find,
-		OpenURL:     func(url string) error { _, err := runner.Run(ctx, "open", url); return err },
+		OpenURL:     browserOpener(ctx, runner),
 		IDEs:        ide.Detect(ide.SearchDirs(home)),
 		ProjectIDEs: state.ProjectIDEs,
 		DefaultIDE:  state.IDE,

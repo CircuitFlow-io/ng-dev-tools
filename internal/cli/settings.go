@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"charm.land/lipgloss/v2"
@@ -18,17 +19,23 @@ const notSet = "not set"
 
 type settingsKey struct{}
 
-// loadSettings reads the settings before any command runs, links ticket keys to the Jira host and
-// keeps the settings in the command's context for projectsRoot.
+// loadSettings reads the settings before every command, so a hand edit applies on the next run. It
+// links ticket keys to the Jira host and keeps the settings in the command's context for
+// projectsRoot.
 func loadSettings(cmd *cobra.Command, _ []string) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return
 	}
 	store := settings.DefaultStore(home, os.Getenv)
+	file := ui.TildePath(store.Path, home)
 	loaded, err := store.Load()
 	if err != nil {
-		lipgloss.Fprintln(cmd.ErrOrStderr(), ui.Warning.Render("Ignoring unreadable "+ui.TildePath(store.Path, home)+": "+err.Error()))
+		lipgloss.Fprintln(cmd.ErrOrStderr(), ui.Warning.Render("Ignoring unreadable "+file+": "+err.Error()))
+	}
+	loaded, err = loaded.Validated(settings.Env{Home: home, Dir: home})
+	if err != nil {
+		lipgloss.Fprintln(cmd.ErrOrStderr(), ui.Warning.Render("Ignoring invalid settings in "+file+": "+strings.ReplaceAll(err.Error(), "\n", "; ")))
 	}
 	ui.LinkTickets(loaded.TicketURLPrefix())
 	cmd.SetContext(context.WithValue(cmd.Context(), settingsKey{}, loaded))
@@ -39,7 +46,7 @@ func settingsFrom(ctx context.Context) settings.Settings {
 	return loaded
 }
 
-// projectsRoot is the folder given with --root, or else the projects-dir setting.
+// projectsRoot is the folder given with --root, or else the projectsDir setting.
 func projectsRoot(ctx context.Context, flagRoot, home string) string {
 	if flagRoot != "" {
 		return flagRoot
@@ -54,15 +61,16 @@ func newSettingsCmd() *cobra.Command {
 		Long: `List ngt's settings with their values, or change one with set and unset.
 
 Settings:
-  projects-dir  folder that holds your projects (default ~/projects). Every command with a --root
-                flag uses it when --root is not given.
-  jira-host     Jira site, such as acme.atlassian.net. Ticket keys like TS-1234 in branch names,
-                commit subjects, pull request titles and TODO notes become links to their page,
-                clickable in terminals that support links (cmd+click in iTerm2, Ghostty, WezTerm).
+  projectsDir  folder that holds your projects (default ~/projects). Every command with a --root
+               flag uses it when --root is not given.
+  jiraHost     Jira site, such as acme.atlassian.net. Ticket keys like TS-1234 in branch names,
+               commit subjects, pull request titles and TODO notes become links to their page,
+               clickable in terminals that support links (cmd+click in iTerm2, Ghostty, WezTerm,
+               Warp). In any terminal, t (ctrl+t in claude sessions) opens the selected row's ticket.
 
 The settings are kept in ~/.config/ngt/settings.json.`,
-		Example: "  ngt settings\n  ngt settings set projects-dir ~/work\n  ngt settings set jira-host acme.atlassian.net\n" +
-			"  ngt settings unset jira-host\n  cd \"$(ngt settings get projects-dir)\"",
+		Example: "  ngt settings\n  ngt settings set projectsDir ~/work\n  ngt settings set jiraHost acme.atlassian.net\n" +
+			"  ngt settings unset jiraHost\n  cd \"$(ngt settings get projectsDir)\"",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSettingsList(cmd.OutOrStdout(), resolveOutput(cmd))
@@ -123,6 +131,13 @@ type settingsEnv struct {
 	loaded settings.Settings
 }
 
+// effective is the settings as commands use them, with invalid hand-edited values at their
+// default. loadSettings has already warned about those.
+func (e settingsEnv) effective() settings.Settings {
+	valid, _ := e.loaded.Validated(settings.Env{Home: e.home, Dir: e.home})
+	return valid
+}
+
 // openSettings reads the settings file, failing on an unreadable one so a change never replaces it.
 func openSettings() (settingsEnv, error) {
 	home, err := os.UserHomeDir()
@@ -142,13 +157,14 @@ func runSettingsList(out io.Writer, mode outputMode) error {
 	if err != nil {
 		return err
 	}
+	current := env.effective()
 	if mode == outputJSON {
-		return writeJSON(out, toSettingsJSON(env.store.Path, env.loaded, env.home))
+		return writeJSON(out, toSettingsJSON(env.store.Path, current, env.home))
 	}
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "SETTING\tVALUE\tDESCRIPTION")
 	for _, k := range settings.Keys {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", k.Name, displayValue(k, env.loaded, env.home), k.Description)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", k.Name, displayValue(k, current, env.home), k.Description)
 	}
 	if err := w.Flush(); err != nil {
 		return err
@@ -180,10 +196,11 @@ func runSettingsGet(out io.Writer, mode outputMode, name string) error {
 	if err != nil {
 		return err
 	}
+	current := env.effective()
 	if mode == outputJSON {
-		return writeJSON(out, toSettingJSON(k, env.loaded, env.home))
+		return writeJSON(out, toSettingJSON(k, current, env.home))
 	}
-	_, err = fmt.Fprintln(out, k.Value(env.loaded, env.home))
+	_, err = fmt.Fprintln(out, k.Value(current, env.home))
 	return err
 }
 

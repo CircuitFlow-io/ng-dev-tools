@@ -157,7 +157,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.opened(msg)
 	case urlOpenedMsg:
 		if msg.err != nil {
-			m.flash = ui.Warning.Render("Could not open the commit: " + msg.err.Error())
+			m.flash = ui.Warning.Render("Could not open it: " + msg.err.Error())
 		}
 		return m, nil
 	case tea.KeyPressMsg:
@@ -230,6 +230,8 @@ func (m Model) updateListing(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.chooseIDE()
 	case "o":
 		return m.openCommit()
+	case "t":
+		return m.openTicket()
 	case "m":
 		m.table.toggleMine()
 		return m, nil
@@ -246,6 +248,22 @@ func (m Model) refresh() (tea.Model, tea.Cmd) {
 	}
 	m.refreshing = true
 	return m, tea.Batch(m.find(), m.startTicking())
+}
+
+// openTicket opens the page of the ticket named in the selected note, or else in the subject of
+// the commit that added it.
+func (m Model) openTicket() (tea.Model, tea.Cmd) {
+	item, ok := m.table.current()
+	if !ok {
+		return m, nil
+	}
+	ticket, ok := ui.FindTicket(item.Note, item.Subject)
+	if !ok {
+		m.flash = ui.Muted.Render(ui.NoTicketReason("this note or its commit"))
+		return m, nil
+	}
+	m.flash = ui.Muted.Render("Opening " + ticket.Key + " in your browser…")
+	return m, func() tea.Msg { return urlOpenedMsg{err: m.cfg.OpenURL(ticket.URL)} }
 }
 
 func (m Model) openCommit() (tea.Model, tea.Cmd) {
@@ -414,6 +432,7 @@ func (m Model) help(width int) string {
 	if m.table.mineOnly {
 		hints = mineHelp
 	}
+	hints = ui.WithTicketHelp(hints, "t")
 	line := hints
 	if m.flash != "" {
 		line = m.flash + flashGap + ui.Muted.Render(hints)

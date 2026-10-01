@@ -49,7 +49,7 @@ requests are printed instead; --json prints everything, checks and reviews inclu
 			return runPRs(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your local clones (default: the projects-dir setting, ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your local clones (default: the projectsDir setting, ~/projects)")
 	return cmd
 }
 
@@ -90,7 +90,7 @@ func runPRs(ctx context.Context, out, notices io.Writer, mode outputMode, flags 
 		FailedLog: func(ctx context.Context, check pulls.Check) ([]pulls.LogLine, error) {
 			return pulls.FailedLog(ctx, runner, check)
 		},
-		OpenURL:     func(url string) error { _, err := runner.Run(ctx, "open", url); return err },
+		OpenURL:     browserOpener(ctx, runner),
 		IDEs:        ide.Detect(ide.SearchDirs(home)),
 		ProjectIDEs: state.ProjectIDEs,
 		DefaultIDE:  state.IDE,

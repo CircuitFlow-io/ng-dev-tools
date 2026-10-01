@@ -13,7 +13,8 @@ const (
 	jiraTicketPath     = "/browse/"
 )
 
-// Settings are the user's preferences. Empty fields mean the default.
+// Settings are the user's preferences. Empty fields mean the default. The JSON keys are the names
+// ngt settings uses, so the file can be edited by hand.
 type Settings struct {
 	// ProjectsDir is the absolute path of the folder that holds the user's projects.
 	ProjectsDir string `json:"projectsDir,omitempty"`
@@ -48,10 +49,11 @@ func DefaultStore(home string, getenv func(string) string) Store {
 	return Store{Path: config.Path(home, getenv, fileName)}
 }
 
-// Load reads the settings, which are all defaults before the first save.
+// Load reads the settings as written, which are all defaults before the first save. An unknown key
+// is an error. Validated checks and normalizes the values.
 func (s Store) Load() (Settings, error) {
 	var loaded Settings
-	if err := config.Load(s.Path, &loaded); err != nil {
+	if err := config.LoadStrict(s.Path, &loaded); err != nil {
 		return Settings{}, err
 	}
 	return loaded, nil

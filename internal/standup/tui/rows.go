@@ -202,9 +202,9 @@ func reviewedRows(reviewed []standup.Reviewed) []row {
 		rows = append(rows, row{
 			kind:   reviewedRow,
 			indent: groupIndent,
-			left: ui.Cell{
-				ui.NewSpan(r.Ref()+" ", accent), ui.NewSpan(r.Title, plain), ui.NewSpan(" by "+r.Author, ui.Muted),
-			},
+			left: ui.JoinCells([]ui.Cell{
+				{ui.NewSpan(r.Ref()+" ", accent)}, ui.TicketCell(r.Title, plain), {ui.NewSpan(" by "+r.Author, ui.Muted)},
+			}, ""),
 			right: verdictCell(r.Verdict),
 			url:   r.URL,
 			what:  r.Ref(),
@@ -229,7 +229,7 @@ func inProgressRows(repos []gitstatus.Repo) []row {
 		rows = append(rows, row{
 			kind:   inProgressRow,
 			indent: groupIndent,
-			left:   ui.Cell{ui.NewSpan(r.Name, ui.Bold), ui.NewSpan("  "+r.Branch, plain)},
+			left:   append(ui.Cell{ui.NewSpan(r.Name, ui.Bold), ui.NewSpan("  ", plain)}, ui.TicketCell(r.Branch, plain)...),
 			right:  progressCell(r),
 		})
 	}

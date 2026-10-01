@@ -39,7 +39,7 @@ type Key struct {
 // Keys are every setting, in the order they are listed.
 var Keys = []Key{
 	{
-		Name:        "projects-dir",
+		Name:        "projectsDir",
 		Description: "folder that holds your projects, used by every command with a --root flag",
 		Default:     homePrefix + "/" + DefaultProjectsDir,
 		value:       func(s Settings, home string) string { return s.ProjectsRoot(home) },
@@ -52,7 +52,7 @@ var Keys = []Key{
 		unset: func(s *Settings) { s.ProjectsDir = "" },
 	},
 	{
-		Name:        "jira-host",
+		Name:        "jiraHost",
 		Description: "Jira site that ticket keys such as TS-1234 link to, e.g. acme.atlassian.net",
 		value:       func(s Settings, _ string) string { return s.JiraHost },
 		isSet:       func(s Settings) bool { return s.JiraHost != "" },
@@ -101,6 +101,23 @@ func (k Key) Set(s *Settings, value string, env Env) error {
 // Unset puts the setting back to its default.
 func (k Key) Unset(s *Settings) {
 	k.unset(s)
+}
+
+// Validated is s with every value checked and normalized as if set with ngt settings set, such as
+// one edited into the file by hand. Invalid values are dropped for their default and reported.
+func (s Settings) Validated(env Env) (Settings, error) {
+	valid := s
+	var errs []error
+	for _, k := range Keys {
+		if !k.IsSet(s) {
+			continue
+		}
+		if err := k.Set(&valid, k.Value(s, env.Home), env); err != nil {
+			k.Unset(&valid)
+			errs = append(errs, err)
+		}
+	}
+	return valid, errors.Join(errs...)
 }
 
 func defaultProjectsRoot(home string) string {

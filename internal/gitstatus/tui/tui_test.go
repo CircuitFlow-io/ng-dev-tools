@@ -14,6 +14,7 @@ import (
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/gitstatus"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/ide"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos/macostest"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
 var (
@@ -273,5 +274,39 @@ func TestPlainRow(t *testing.T) {
 	}
 	if failed := PlainRow(r, time.Now(), "denied"); failed[3] != "fetch failed" {
 		t.Errorf("sync with a failed fetch = %q", failed[3])
+	}
+}
+
+func TestTOpensTheTicketInTheBranch(t *testing.T) {
+	ui.LinkTickets("https://acme.atlassian.net/browse/")
+	t.Cleanup(func() { ui.LinkTickets("") })
+	var opened []string
+	cfg := Config{Root: "/p", Home: "/home", Runner: &macostest.Runner{}, OpenURL: func(url string) error {
+		opened = append(opened, url)
+		return nil
+	}}
+	repos := []gitstatus.Repo{{Name: "login", Path: "/p/login", Branch: "feat/TS-234455-login-form"}}
+	next, _ := New(context.Background(), cfg).Update(loadedMsg{repos: repos})
+	m := next.(Model)
+	if !strings.Contains(view(m), "t ticket") {
+		t.Errorf("help misses the ticket key:\n%s", view(m))
+	}
+	m, cmd := press(t, m, key("t"))
+	if cmd == nil {
+		t.Fatalf("t opened nothing:\n%s", view(m))
+	}
+	cmd()
+	if len(opened) != 1 || opened[0] != "https://acme.atlassian.net/browse/TS-234455" {
+		t.Errorf("opened = %q", opened)
+	}
+}
+
+func TestTExplainsABranchWithoutATicket(t *testing.T) {
+	ui.LinkTickets("https://acme.atlassian.net/browse/")
+	t.Cleanup(func() { ui.LinkTickets("") })
+	m, _ := loaded(t, Config{}, &fakeActions{})
+	m, cmd := press(t, m, key("t"))
+	if cmd != nil || !strings.Contains(view(m), "No ticket key in fix") {
+		t.Errorf("want an explanation and nothing opened:\n%s", view(m))
 	}
 }

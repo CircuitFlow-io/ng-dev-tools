@@ -52,6 +52,12 @@ type Config struct {
 	Live func(ctx context.Context) map[string]claudesessions.Live
 	// PRs looks up the sessions' pull requests by URL. It is optional.
 	PRs func(ctx context.Context, urls []string) (map[string]pulls.Summary, error)
+	// OpenURL opens a page in the browser.
+	OpenURL func(url string) error
+}
+
+type urlOpenedMsg struct {
+	err error
 }
 
 type prsMsg struct {
@@ -193,6 +199,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case prsMsg:
 		m.prs = prLookup{found: msg.found, err: msg.err}
 		return m, nil
+	case urlOpenedMsg:
+		if msg.err != nil {
+			m.flash = ui.Warning.Render("Could not open the ticket: " + msg.err.Error())
+		}
+		return m, nil
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			return m.quit()
@@ -270,6 +281,8 @@ func (m Model) updateListing(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "enter":
 		return m.choose()
+	case "ctrl+t":
+		return m.openTicket()
 	case "esc":
 		if m.query == "" {
 			return m.quit()
@@ -286,6 +299,23 @@ func (m Model) updateListing(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	m.table.cursor.HandleKey(key.String())
 	return m, nil
+}
+
+// openTicket opens the page of the ticket named in the selected session's title, branch or first
+// prompt. Letters type into the search, so it takes ctrl+t.
+func (m Model) openTicket() (tea.Model, tea.Cmd) {
+	r, ok := m.table.current()
+	if !ok {
+		return m, nil
+	}
+	s := r.Session
+	ticket, ok := ui.FindTicket(s.Title, s.Branch, s.FirstPrompt)
+	if !ok {
+		m.flash = ui.Muted.Render(ui.NoTicketReason("this session's title, branch or first prompt"))
+		return m, nil
+	}
+	m.flash = ui.Muted.Render("Opening " + ticket.Key + " in your browser…")
+	return m, func() tea.Msg { return urlOpenedMsg{err: m.cfg.OpenURL(ticket.URL)} }
 }
 
 func (m *Model) setQuery(query string) {
@@ -377,9 +407,10 @@ func (m Model) title() string {
 
 // help is the key hints, after the latest action's result when there is one, cut to the width.
 func (m Model) help(width int) string {
-	line := help
+	keys := ui.WithTicketHelp(help, "ctrl+t")
+	line := keys
 	if m.flash != "" {
-		line = m.flash + flashGap + ui.Muted.Render(help)
+		line = m.flash + flashGap + ui.Muted.Render(keys)
 	}
 	return ui.Help.Render(ui.FitLine(line, width))
 }

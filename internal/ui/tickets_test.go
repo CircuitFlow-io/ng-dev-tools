@@ -66,3 +66,34 @@ func TestTicketLinkSurvivesTruncation(t *testing.T) {
 		t.Errorf("truncated cell lost its link: %q", rendered)
 	}
 }
+
+func TestFindTicketTakesTheFirstKeyInOrder(t *testing.T) {
+	linkTicketsForTest(t)
+	ticket, ok := FindTicket("Fix the retry", "feat/COREX-344-retry", "TS-1")
+	if !ok || ticket != (Ticket{Key: "COREX-344", URL: testTicketPrefix + "COREX-344"}) {
+		t.Errorf("FindTicket = %+v, %v", ticket, ok)
+	}
+	if _, ok := FindTicket("main", "no key here"); ok {
+		t.Error("FindTicket found a key in text without one")
+	}
+}
+
+func TestFindTicketNeedsAJiraHost(t *testing.T) {
+	if _, ok := FindTicket("feat/TS-1-login"); ok {
+		t.Error("FindTicket found a ticket without a Jira host")
+	}
+	if reason := NoTicketReason("main"); !strings.Contains(reason, "jiraHost") {
+		t.Errorf("NoTicketReason without a host = %q, want a hint to set jiraHost", reason)
+	}
+}
+
+func TestWithTicketHelpGoesBeforeTheLastHint(t *testing.T) {
+	const help = "↑/↓ move · r refresh · q quit"
+	if got := WithTicketHelp(help, "t"); got != help {
+		t.Errorf("without a Jira host = %q", got)
+	}
+	linkTicketsForTest(t)
+	if got, want := WithTicketHelp(help, "t"), "↑/↓ move · r refresh · t ticket · q quit"; got != want {
+		t.Errorf("WithTicketHelp = %q, want %q", got, want)
+	}
+}

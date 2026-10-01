@@ -88,7 +88,7 @@ func runClaudeSessions(ctx context.Context, out io.Writer, mode outputMode, quer
 	}
 	cfg := tui.Config{
 		Dir: dir, Home: home, Root: projectsRoot(ctx, "", home), Query: query,
-		Find: find, Live: live, PRs: lookUpPRs,
+		Find: find, Live: live, PRs: lookUpPRs, OpenURL: browserOpener(ctx, macos.ExecRunner{}),
 	}
 	final, err := tea.NewProgram(tui.New(ctx, cfg)).Run()
 	if err != nil {

@@ -285,8 +285,20 @@ func (m Model) updateListing(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.chooseIDE(p)
 	case "l":
 		return m.showLog(p)
+	case "t":
+		return m.openTicket(p)
 	}
 	return m, nil
+}
+
+// openTicket opens the page of the ticket named in the pull request's title or branch.
+func (m Model) openTicket(p pulls.PR) (tea.Model, tea.Cmd) {
+	ticket, ok := ui.FindTicket(p.Title, p.HeadRef)
+	if !ok {
+		m.flash = ui.Muted.Render(ui.NoTicketReason(p.Ref()))
+		return m, nil
+	}
+	return m.openInBrowser(ticket.URL, ticket.Key)
 }
 
 func (m Model) refresh() (tea.Model, tea.Cmd) {
@@ -534,7 +546,7 @@ func (m Model) title() string {
 // help is the key hints, after the latest action's result when there is one, cut to the width.
 func (m Model) help() string {
 	width := m.width - 2*ui.HorizontalMargin
-	keys := m.keys()
+	keys := ui.WithTicketHelp(m.keys(), "t")
 	if m.flash == "" {
 		return ui.Help.Render(ui.FitLine(keys, width))
 	}

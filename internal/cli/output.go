@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
 )
 
 const jsonFlag = "json"
@@ -90,4 +93,12 @@ func nonNil[T any](items []T) []T {
 		return []T{}
 	}
 	return items
+}
+
+// browserOpener opens a page in the default browser, for the screens' OpenURL.
+func browserOpener(ctx context.Context, runner macos.Runner) func(string) error {
+	return func(url string) error {
+		_, err := runner.Run(ctx, "open", url)
+		return err
+	}
 }

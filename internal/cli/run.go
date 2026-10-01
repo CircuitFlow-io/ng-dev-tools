@@ -68,7 +68,7 @@ When output is not a terminal, or with --json, the scripts are printed instead a
 			return runRun(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, args, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projectsDir setting, ~/projects)")
 	cmd.Flags().BoolVar(&flags.last, "last", false, "rerun the last script run in this project, or anywhere when outside one")
 	return cmd
 }
