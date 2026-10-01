@@ -13,7 +13,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/cleanup"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/cleanup/rules"
@@ -52,11 +51,13 @@ Categories:
   caches  system, browser and app caches, logs, Trash, iOS updates and backups
   dev     Xcode, simulators, package manager caches, Docker, stale project build folders
   apps    applications not opened recently and leftovers from uninstalled apps
-  files   large or installer files in Downloads and Desktop not opened recently`,
-		Example: "  ngt clean\n  ngt clean --dry-run\n  ngt clean --category dev --older-than 30d",
+  files   large or installer files in Downloads and Desktop not opened recently
+
+When output is not a terminal, or with --json, what was found is printed and nothing is deleted.`,
+		Example: "  ngt clean\n  ngt clean --dry-run\n  ngt clean --category dev --older-than 30d\n  ngt clean --category dev --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runClean(cmd.Context(), cmd.OutOrStdout(), flags)
+			return runClean(cmd.Context(), cmd.OutOrStdout(), resolveOutput(cmd), flags)
 		},
 	}
 
@@ -69,7 +70,7 @@ Categories:
 	return cmd
 }
 
-func runClean(ctx context.Context, out io.Writer, flags cleanFlags) error {
+func runClean(ctx context.Context, out io.Writer, mode outputMode, flags cleanFlags) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -80,8 +81,11 @@ func runClean(ctx context.Context, out io.Writer, flags cleanFlags) error {
 	}
 	scanner := cleanup.Scanner{Rules: rules.ForCategories(rules.Default(), categories), Env: env}
 
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	switch mode {
+	case outputText:
 		return printReport(ctx, out, scanner)
+	case outputJSON:
+		return writeJSON(out, toCleanJSON(scanner.Scan(ctx, nil)))
 	}
 
 	logFile, logPath, err := openLog(home, env.Now)

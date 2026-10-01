@@ -202,6 +202,25 @@ Sessions are read from `~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects`. I
 
 Keys: type to search, `↑/↓` move, `enter` resume, `esc` clear the search or quit.
 
+## Output for scripts and AI agents
+
+Every command takes `--json`. It never opens the interactive screen or asks anything, even in a terminal, and prints one JSON object to stdout with everything the screen shows, details box included. Warnings go to stderr, and the exit status is the same as without it (`ngt doctor` still exits 1 when a check fails).
+
+```sh
+ngt status --json | jq '.repos[] | select(.behind > 0) | .name'
+ngt prs --json | jq '.mine[] | {url, state, checkCounts}'
+ngt doctor --problems --json
+ngt claude sessions expo --json | jq '.sessions[0].tokens'
+ngt ports 3000 --yes --json      # stopping needs --yes, since nothing can be asked
+```
+
+- Keys are camelCase. Times are RFC 3339, sizes are bytes (`sizeBytes`) and durations milliseconds (`durationMs`). Paths are absolute.
+- Empty lists, unset times and empty optional strings are left out; the command's main list is always an array, even when empty.
+- ngt's own states are lowercase words (`"checks failing"`, `"rebase"`, `"already-exited"`); GitHub's (`reviewDecision`, `mergeable`, a pull request's `state`) are spelled as GitHub returns them.
+- It only reads: nothing is deleted, opened, run or resumed. The one exception is `ngt ports <port...> --yes --json`, whose job is stopping.
+
+Without `--json`, piped output stays the plain table described under each command.
+
 ## Development
 
 ```sh

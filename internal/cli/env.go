@@ -11,7 +11,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/envfiles"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/envfiles/tui"
@@ -36,18 +35,18 @@ history after being deleted, come first: their secrets may have leaked.
 Only key names are shown, never values. Press a to append the missing keys to the local file with
 empty values; nothing else is ever written.
 
-When output is not a terminal, the table is printed instead.`,
-		Example: "  ngt env\n  ngt env | grep tracked",
+When output is not a terminal, the table is printed instead; --json prints every key name as JSON.`,
+		Example: "  ngt env\n  ngt env | grep tracked\n  ngt env --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runEnvCheck(cmd.Context(), cmd.OutOrStdout(), flags)
+			return runEnvCheck(cmd.Context(), cmd.OutOrStdout(), resolveOutput(cmd), flags)
 		},
 	}
 	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
 	return cmd
 }
 
-func runEnvCheck(ctx context.Context, out io.Writer, flags envFlags) error {
+func runEnvCheck(ctx context.Context, out io.Writer, mode outputMode, flags envFlags) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -58,10 +57,13 @@ func runEnvCheck(ctx context.Context, out io.Writer, flags envFlags) error {
 	}
 	runner := macos.ExecRunner{}
 	scan := func(ctx context.Context) ([]envfiles.Set, error) { return envfiles.ScanAll(ctx, runner, root) }
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	if mode != outputTUI {
 		sets, err := scan(ctx)
 		if err != nil {
 			return err
+		}
+		if mode == outputJSON {
+			return writeJSON(out, toEnvJSON(sets))
 		}
 		return writeEnv(out, sets)
 	}

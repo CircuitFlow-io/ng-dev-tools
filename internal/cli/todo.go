@@ -15,7 +15,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/ide"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
@@ -45,19 +44,21 @@ Press enter to open the file at that line in your IDE, o to open the commit that
 GitHub, and m to show only the lines you wrote. A line is yours when its author has any
 user.email or user.name set for its repository, or your GitHub profile name or noreply address.
 
-When output is not a terminal, the comments are printed instead.`,
-		Example: "  ngt todo\n  ngt todo --mine\n  ngt todo | grep FIXME",
+When output is not a terminal, the comments are printed instead; --json prints everything, blame
+included, as JSON.`,
+		Example: "  ngt todo\n  ngt todo --mine\n  ngt todo | grep FIXME\n  ngt todo --mine --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTodo(cmd.Context(), cmd.OutOrStdout(), flags)
+			mode := resolveOutput(cmd)
+			return runTodo(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, flags)
 		},
 	}
 	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
-	cmd.Flags().BoolVar(&flags.mine, "mine", false, "only print the lines you wrote, when output is not a terminal")
+	cmd.Flags().BoolVar(&flags.mine, "mine", false, "only print the lines you wrote, when output is not a terminal or with --json")
 	return cmd
 }
 
-func runTodo(ctx context.Context, out io.Writer, flags todoFlags) error {
+func runTodo(ctx context.Context, out, notices io.Writer, mode outputMode, flags todoFlags) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -70,14 +71,21 @@ func runTodo(ctx context.Context, out io.Writer, flags todoFlags) error {
 	find := func(ctx context.Context) ([]todos.Item, map[string]error, error) {
 		return todos.FindAll(ctx, runner, root)
 	}
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	switch mode {
+	case outputText:
 		return printTodos(ctx, out, find, flags.mine)
+	case outputJSON:
+		items, errs, err := findTodos(ctx, find, flags.mine)
+		if err != nil {
+			return err
+		}
+		return writeJSON(out, toTodosJSON(items, errs))
 	}
 
 	store := projects.DefaultStore(home, os.Getenv)
 	state, err := store.Load()
 	if err != nil {
-		lipgloss.Fprintln(out, ui.Warning.Render("Ignoring unreadable "+ui.TildePath(store.Path, home)+": "+err.Error()))
+		lipgloss.Fprintln(notices, ui.Warning.Render("Ignoring unreadable "+ui.TildePath(store.Path, home)+": "+err.Error()))
 	}
 	cfg := tui.Config{
 		Root:        root,
@@ -113,12 +121,9 @@ func lineOpener(ctx context.Context, runner macos.Runner, store projects.Store, 
 
 // printTodos lists the comments as plain text, for when output is not a terminal.
 func printTodos(ctx context.Context, out io.Writer, find func(context.Context) ([]todos.Item, map[string]error, error), mine bool) error {
-	items, errs, err := find(ctx)
+	items, errs, err := findTodos(ctx, find, mine)
 	if err != nil {
 		return err
-	}
-	if mine {
-		items = slices.DeleteFunc(items, func(i todos.Item) bool { return !i.Mine })
 	}
 	if err := writeTodos(out, items, time.Now()); err != nil {
 		return err
@@ -127,6 +132,15 @@ func printTodos(ctx context.Context, out io.Writer, find func(context.Context) (
 		fmt.Fprintf(out, "%s: could not search: %v\n", name, errs[name])
 	}
 	return nil
+}
+
+// findTodos finds the comments, keeping only the lines you wrote when mine is set.
+func findTodos(ctx context.Context, find func(context.Context) ([]todos.Item, map[string]error, error), mine bool) ([]todos.Item, map[string]error, error) {
+	items, errs, err := find(ctx)
+	if err != nil || !mine {
+		return items, errs, err
+	}
+	return slices.DeleteFunc(items, func(i todos.Item) bool { return !i.Mine }), errs, nil
 }
 
 func writeTodos(out io.Writer, items []todos.Item, now time.Time) error {

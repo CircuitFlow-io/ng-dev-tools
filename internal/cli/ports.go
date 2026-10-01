@@ -26,7 +26,10 @@ import (
 
 const maxPort = 65535
 
-var errNeedsConfirmation = errors.New("stdin is not a terminal: pass --yes to stop without confirming")
+var (
+	errNeedsConfirmation     = errors.New("stdin is not a terminal: pass --yes to stop without confirming")
+	errJSONNeedsConfirmation = errors.New("--json cannot ask before stopping: pass --yes to stop without confirming")
+)
 
 type portsFlags struct {
 	all   bool
@@ -44,11 +47,13 @@ func newPortsCmd() *cobra.Command {
 uptime, and stop the ones you pick. With port numbers, stop whatever is listening on them.
 
 Processes get SIGTERM so they can shut down cleanly, and SIGKILL if they are still running
-after the grace period. macOS system processes are hidden unless --all is given.`,
-		Example: "  ngt ports\n  ngt ports 3000\n  ngt ports 3000 8080 --yes\n  ngt ports | grep node",
+after the grace period. macOS system processes are hidden unless --all is given.
+
+--json prints the listening processes, or with port numbers and --yes what was stopped, as JSON.`,
+		Example: "  ngt ports\n  ngt ports 3000\n  ngt ports 3000 8080 --yes\n  ngt ports | grep node\n  ngt ports --json\n  ngt ports 3000 --yes --json",
 		Args:    validPorts,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPorts(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout(), args, flags)
+			return runPorts(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout(), resolveOutput(cmd), args, flags)
 		},
 	}
 
@@ -77,7 +82,7 @@ func parsePorts(args []string) ([]int, error) {
 	return numbers, nil
 }
 
-func runPorts(ctx context.Context, in io.Reader, out io.Writer, args []string, flags portsFlags) error {
+func runPorts(ctx context.Context, in io.Reader, out io.Writer, mode outputMode, args []string, flags portsFlags) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -91,11 +96,21 @@ func runPorts(ctx context.Context, in io.Reader, out io.Writer, args []string, f
 		if err != nil {
 			return err
 		}
+		if mode == outputJSON {
+			return stopPortsJSON(ctx, out, lister, stopper, wanted, flags.yes)
+		}
 		confirm := confirmer(in, out, flags.yes)
 		return stopPorts(ctx, out, lister, stopper, wanted, confirm)
 	}
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	switch mode {
+	case outputText:
 		return printPorts(ctx, out, lister, flags.all)
+	case outputJSON:
+		processes, err := lister.List(ctx)
+		if err != nil {
+			return err
+		}
+		return writeJSON(out, toPortsJSON(visibleProcesses(processes, flags.all), time.Now()))
 	}
 
 	final, err := tea.NewProgram(tui.New(ctx, tui.Config{Lister: lister, Stopper: stopper, ShowSystem: flags.all})).Run()
@@ -129,6 +144,28 @@ func stopPorts(ctx context.Context, out io.Writer, lister ports.Lister, stopper 
 
 	results := stopper.StopAll(ctx, holders, nil)
 	lipgloss.Fprintln(out, tui.Results(results))
+	return stopFailure(results)
+}
+
+// stopPortsJSON stops whatever listens on wanted without asking, which assumeYes must allow, and
+// reports it as JSON.
+func stopPortsJSON(ctx context.Context, out io.Writer, lister ports.Lister, stopper ports.Stopper, wanted []int, assumeYes bool) error {
+	if !assumeYes {
+		return errJSONNeedsConfirmation
+	}
+	processes, err := lister.List(ctx)
+	if err != nil {
+		return err
+	}
+	holders, free := ports.Holding(processes, wanted)
+	results := stopper.StopAll(ctx, holders, nil)
+	if err := writeJSON(out, toStopJSON(free, results, time.Now())); err != nil {
+		return err
+	}
+	return stopFailure(results)
+}
+
+func stopFailure(results []ports.StopResult) error {
 	if failed := countFailed(results); failed > 0 {
 		return fmt.Errorf("could not stop %s", ui.Count(failed, "process"))
 	}
@@ -180,12 +217,17 @@ func printPorts(ctx context.Context, out io.Writer, lister ports.Lister, all boo
 	now := time.Now()
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "PORTS\tPID\tPROCESS\tUPTIME\tPROJECT\tADDRESSES")
-	for _, p := range processes {
-		if p.IsSystem() && !all {
-			continue
-		}
+	for _, p := range visibleProcesses(processes, all) {
 		fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%s\t%s\n", p.PortList(), p.PID, p.Name, ui.Elapsed(p.Uptime(now)),
 			ui.TildePath(p.Project, lister.Home), strings.Join(p.Addresses, ","))
 	}
 	return w.Flush()
+}
+
+// visibleProcesses leaves out macOS system and simulator processes unless all is set.
+func visibleProcesses(processes []ports.Process, all bool) []ports.Process {
+	if all {
+		return processes
+	}
+	return slices.DeleteFunc(slices.Clone(processes), ports.Process.IsSystem)
 }

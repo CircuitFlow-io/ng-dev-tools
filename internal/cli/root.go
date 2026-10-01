@@ -11,6 +11,7 @@ func NewRootCmd(version string) *cobra.Command {
 		Version:      version,
 		SilenceUsage: true,
 	}
+	addJSONFlag(root)
 	root.AddCommand(newCleanCmd(), newPortsCmd(), newDoctorCmd(), newOpenCmd(), newRunCmd(), newStatusCmd(), newPRsCmd(), newEnvCmd(), newTodoCmd(), newStandupCmd(), newClaudeCmd())
 	return root
 }
