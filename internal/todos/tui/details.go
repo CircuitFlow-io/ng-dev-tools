@@ -55,7 +55,7 @@ func blameLine(item todos.Item, now time.Time) string {
 		who = you
 	}
 	line := ui.Muted.Render("Added by ") + who + ui.Muted.Render(" "+ui.Ago(now, item.At)+" in ") + accent.Render(item.ShortCommit())
-	return line + ui.Muted.Render(noteJoiner+item.Subject)
+	return line + ui.Muted.Render(noteJoiner) + ui.RenderTickets(item.Subject, ui.Muted)
 }
 
 // codeLines numbers the lines around the marker and brings out the marker's line.

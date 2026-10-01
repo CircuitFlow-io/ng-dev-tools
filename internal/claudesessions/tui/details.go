@@ -77,7 +77,11 @@ func folderLine(s claudesessions.Session, missing bool, home string) string {
 		line += ui.Warning.Render("  no longer exists, so it cannot be resumed")
 	}
 	if len(s.Branches) > 0 {
-		line += ui.Muted.Render(joiner+"on ") + strings.Join(s.Branches, ui.Muted.Render(", "))
+		branches := make([]string, len(s.Branches))
+		for i, b := range s.Branches {
+			branches[i] = ui.RenderTickets(b, plain)
+		}
+		line += ui.Muted.Render(joiner+"on ") + strings.Join(branches, ui.Muted.Render(", "))
 	}
 	return line
 }

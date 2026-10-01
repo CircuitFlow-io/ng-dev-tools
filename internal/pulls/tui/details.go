@@ -33,7 +33,7 @@ func details(p pulls.PR, ok bool, clone string, home string, now time.Time, widt
 	}
 	lines := []string{
 		ui.FitLine(ui.Bold.Render(p.Ref())+"  "+ui.RenderTickets(p.Title, plain), inner),
-		ui.FitLine(ui.Muted.Render(origin(p, now)), inner),
+		ui.FitLine(origin(p, now), inner),
 		ui.FitLine(sizeLine(p, clone, home), inner),
 	}
 	lines = append(lines, body(p, inner, detailLines-len(lines))...)
@@ -41,8 +41,8 @@ func details(p pulls.PR, ok bool, clone string, home string, now time.Time, widt
 }
 
 func origin(p pulls.PR, now time.Time) string {
-	return fmt.Sprintf("@%s wants to merge %s into %s · opened %s · updated %s",
-		p.Author, p.HeadRef, p.BaseRef, ui.Ago(now, p.CreatedAt), ui.Ago(now, p.UpdatedAt))
+	return ui.Muted.Render("@"+p.Author+" wants to merge ") + ui.RenderTickets(p.HeadRef, ui.Muted) +
+		ui.Muted.Render(fmt.Sprintf(" into %s · opened %s · updated %s", p.BaseRef, ui.Ago(now, p.CreatedAt), ui.Ago(now, p.UpdatedAt)))
 }
 
 func sizeLine(p pulls.PR, clone, home string) string {
