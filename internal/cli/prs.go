@@ -49,7 +49,7 @@ requests are printed instead; --json prints everything, checks and reviews inclu
 			return runPRs(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your local clones (default: the projects-dir setting, ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your local clones (default: the projectsDir setting, ~/projects)")
 	return cmd
 }
 

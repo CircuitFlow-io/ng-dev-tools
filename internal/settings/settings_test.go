@@ -3,6 +3,7 @@ package settings
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -16,7 +17,7 @@ func TestJiraHostAcceptsHostsAndAddresses(t *testing.T) {
 		{"jira.corp.example/jira", "jira.corp.example/jira"},
 		{"http://jira.local:8080", "http://jira.local:8080"},
 	}
-	key := mustLookup(t, "jira-host")
+	key := mustLookup(t, "jiraHost")
 	for _, tt := range tests {
 		var s Settings
 		if err := key.Set(&s, tt.value, Env{}); err != nil {
@@ -30,7 +31,7 @@ func TestJiraHostAcceptsHostsAndAddresses(t *testing.T) {
 }
 
 func TestJiraHostRejectsNonWebAddresses(t *testing.T) {
-	key := mustLookup(t, "jira-host")
+	key := mustLookup(t, "jiraHost")
 	for _, value := range []string{"", "ftp://acme.example", "https://"} {
 		s := Settings{JiraHost: "kept.example"}
 		if err := key.Set(&s, value, Env{}); err == nil {
@@ -61,7 +62,7 @@ func TestProjectsDirResolvesToAnExistingFolder(t *testing.T) {
 	if err := os.Mkdir(work, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	key := mustLookup(t, "projects-dir")
+	key := mustLookup(t, "projectsDir")
 	env := Env{Home: home, Dir: home}
 	for _, value := range []string{"~/work", "work", work + "/", "./work/../work"} {
 		var s Settings
@@ -81,7 +82,7 @@ func TestProjectsDirRejectsMissingFoldersAndFiles(t *testing.T) {
 	if err := os.WriteFile(file, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	key := mustLookup(t, "projects-dir")
+	key := mustLookup(t, "projectsDir")
 	for _, value := range []string{"", "~/missing", file} {
 		var s Settings
 		if err := key.Set(&s, value, Env{Home: home, Dir: home}); err == nil {
@@ -116,7 +117,7 @@ func TestStoreRoundTrip(t *testing.T) {
 
 func TestLookupNamesTheKnownSettings(t *testing.T) {
 	_, err := Lookup("jira")
-	if err == nil || err.Error() != `unknown setting "jira" (known: projects-dir, jira-host)` {
+	if err == nil || err.Error() != `unknown setting "jira" (known: projectsDir, jiraHost)` {
 		t.Errorf("Lookup error = %v", err)
 	}
 }
@@ -128,4 +129,41 @@ func mustLookup(t *testing.T, name string) Key {
 		t.Fatal(err)
 	}
 	return key
+}
+
+func TestStoreReadsAHandWrittenFile(t *testing.T) {
+	store := Store{Path: filepath.Join(t.TempDir(), "settings.json")}
+	if err := os.WriteFile(store.Path, []byte(`{"jiraHost": "https://acme.atlassian.net/"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid, err := loaded.Validated(Env{})
+	if err != nil || valid.JiraHost != "acme.atlassian.net" {
+		t.Errorf("validated = %+v, %v; want jiraHost acme.atlassian.net", valid, err)
+	}
+}
+
+func TestStoreReportsUnknownKeys(t *testing.T) {
+	store := Store{Path: filepath.Join(t.TempDir(), "settings.json")}
+	if err := os.WriteFile(store.Path, []byte(`{"jira-host": "acme.atlassian.net"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Load(); err == nil || !strings.Contains(err.Error(), `"jira-host"`) {
+		t.Errorf("Load error = %v, want one naming the unknown key", err)
+	}
+}
+
+func TestValidatedDropsOnlyTheInvalidValues(t *testing.T) {
+	home := t.TempDir()
+	s := Settings{ProjectsDir: filepath.Join(home, "missing"), JiraHost: "acme.atlassian.net"}
+	valid, err := s.Validated(Env{Home: home, Dir: home})
+	if err == nil || !strings.Contains(err.Error(), "projectsDir") {
+		t.Errorf("Validated error = %v, want one about projectsDir", err)
+	}
+	if want := (Settings{JiraHost: "acme.atlassian.net"}); valid != want {
+		t.Errorf("validated = %+v, want %+v", valid, want)
+	}
 }

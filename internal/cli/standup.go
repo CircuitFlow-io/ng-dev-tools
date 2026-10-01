@@ -46,7 +46,7 @@ When output is not a terminal, the report is printed instead; --json prints it a
 			return runStandup(cmd.Context(), cmd.OutOrStdout(), resolveOutput(cmd), flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projects-dir setting, ~/projects)")
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projectsDir setting, ~/projects)")
 	cmd.Flags().StringVar(&flags.since, "since", "", "start of the report: today, yesterday, monday, 2026-09-28, 3d or 2w (default the last day you worked)")
 	return cmd
 }

@@ -2,6 +2,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io/fs"
@@ -22,6 +23,16 @@ func Path(home string, getenv func(string) string, file string) string {
 
 // Load decodes the JSON file at path into v, leaving v untouched when the file does not exist yet.
 func Load(path string, v any) error {
+	return load(path, v, false)
+}
+
+// LoadStrict is Load for files people edit by hand: a key v has no field for is an error, so a
+// misspelt one is reported rather than ignored.
+func LoadStrict(path string, v any) error {
+	return load(path, v, true)
+}
+
+func load(path string, v any, strict bool) error {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
@@ -29,7 +40,12 @@ func Load(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(data, v)
+	if !strict {
+		return json.Unmarshal(data, v)
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	return dec.Decode(v)
 }
 
 // Save writes v as JSON through a temporary file, so an interrupted save never leaves a broken file.

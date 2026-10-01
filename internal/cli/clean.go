@@ -29,7 +29,7 @@ const (
 	logTimeLayout    = "20060102-150405"
 )
 
-// commonProjectDirs are searched for stale build artifacts besides the projects-dir setting.
+// commonProjectDirs are searched for stale build artifacts besides the projectsDir setting.
 var commonProjectDirs = []string{"Developer", "code", "src", "workspace"}
 
 type cleanFlags struct {
@@ -66,7 +66,7 @@ When output is not a terminal, or with --json, what was found is printed and not
 	f.BoolVar(&flags.dryRun, "dry-run", false, "go through the whole flow without deleting anything")
 	f.StringVar(&flags.olderThan, "older-than", defaultOlderThan, "treat things unused for this long as stale (e.g. 30d, 12w, 720h)")
 	f.StringSliceVar(&flags.categories, "category", categoryKeys(), "categories to scan")
-	f.StringSliceVar(&flags.projectDirs, "projects-dir", nil, "folders searched for stale project build artifacts (default: the projects-dir setting, ~/Developer, ~/code, ~/src, ~/workspace)")
+	f.StringSliceVar(&flags.projectDirs, "projects-dir", nil, "folders searched for stale project build artifacts (default: the projectsDir setting, ~/Developer, ~/code, ~/src, ~/workspace)")
 	f.StringVar(&flags.minSize, "min-size", defaultMinSize, "minimum size of a large old file")
 	return cmd
 }
