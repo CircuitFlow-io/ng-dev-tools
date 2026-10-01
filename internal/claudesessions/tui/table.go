@@ -35,6 +35,7 @@ var (
 type table struct {
 	results   []claudesessions.Result
 	missing   map[string]bool
+	live      map[string]claudesessions.Live
 	cursor    ui.ListCursor
 	width     int
 	height    int
@@ -77,7 +78,7 @@ func projectLabel(dir, home, root string) string {
 }
 
 type layout struct {
-	active, prompt, project, branch, prompts, model int
+	active, status, prompt, project, branch, prompts, model int
 }
 
 // layout fits the columns to their content and gives the first prompt what is left. When that is
@@ -85,12 +86,13 @@ type layout struct {
 func (t table) layout() layout {
 	l := layout{
 		active:  t.fit("ACTIVE", func(r claudesessions.Result) string { return ui.Ago(t.now, r.Session.LastActive) }, 0, t.width),
+		status:  t.fit(statusHead, func(r claudesessions.Result) string { return statusCell(t.live[r.Session.ID]) }, 0, t.width),
 		project: t.fit("PROJECT", func(r claudesessions.Result) string { return t.project(r.Session) }, minProjectWidth, maxProjectWidth),
 		branch:  t.fit("BRANCH", func(r claudesessions.Result) string { return r.Session.Branch }, minBranchWidth, maxBranchWidth),
 		prompts: t.fit("PROMPTS", func(r claudesessions.Result) string { return strconv.Itoa(r.Session.Prompts) }, 0, t.width),
 		model:   t.fit("MODEL", func(r claudesessions.Result) string { return modelName(r.Session) }, 0, maxModelWidth),
 	}
-	l.prompt = t.width - cursorWidth - l.active - l.project - l.branch - l.prompts - l.model
+	l.prompt = t.width - cursorWidth - l.active - l.status - l.project - l.branch - l.prompts - l.model
 	for _, column := range []*int{&l.model, &l.branch} {
 		if l.prompt < minPromptWidth {
 			l.prompt += *column
@@ -123,7 +125,8 @@ func modelName(s claudesessions.Session) string {
 
 func (t table) header() string {
 	l := t.layout()
-	cells := strings.Repeat(" ", cursorWidth) + ui.PadRight("ACTIVE", l.active) + ui.PadRight("FIRST PROMPT", l.prompt) +
+	cells := strings.Repeat(" ", cursorWidth) + ui.PadRight("ACTIVE", l.active) + ui.PadRight(statusHead, l.status) +
+		ui.PadRight("FIRST PROMPT", l.prompt) +
 		ui.PadRight("PROJECT", l.project)
 	if l.branch > 0 {
 		cells += ui.PadRight("BRANCH", l.branch)
@@ -155,6 +158,7 @@ func (t table) view() string {
 
 func (t table) row(index int, l layout) string {
 	s := t.results[index].Session
+	live := t.live[s.ID]
 	painter := ui.NewRowPainter(index == t.cursor.Index, t.highlight)
 	promptStyle := plain
 	if painter.IsHighlighted() {
@@ -166,6 +170,7 @@ func (t table) row(index int, l layout) string {
 	}
 	row := painter.Cursor() +
 		painter.Paint(ui.Muted.Width(l.active), ui.Ago(t.now, s.LastActive)) +
+		painter.Paint(statusStyle(live).Width(l.status), statusCell(live)) +
 		painter.Paint(promptStyle.Width(l.prompt), ui.Truncate(s.FirstPrompt, l.prompt-columnGap)) +
 		painter.Paint(projectStyle.Width(l.project), ui.TruncatePath(t.project(s), l.project-columnGap))
 	if l.branch > 0 {

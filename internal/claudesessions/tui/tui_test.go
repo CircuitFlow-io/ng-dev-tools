@@ -201,3 +201,46 @@ func TestProjectLabel(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenSessionsShowWhatClaudeIsDoing(t *testing.T) {
+	now := time.Now()
+	live := map[string]claudesessions.Live{
+		"s1": {Activity: claudesessions.Waiting, WaitingFor: "permission", Since: now.Add(-3 * time.Minute), PID: 4044, Entrypoint: "cli"},
+	}
+	m := loaded(t, Config{})
+	next, cmd := m.Update(liveMsg(live))
+	m = next.(Model)
+	screen := view(m)
+
+	if !strings.Contains(strings.Split(screen, "\n")[4], "STATUS") {
+		t.Errorf("header has no STATUS:\n%s", screen)
+	}
+	for _, want := range []string{"● waiting", "waiting on permission for 3m in a terminal (pid 4044)"} {
+		if !strings.Contains(screen, want) {
+			t.Errorf("screen is missing %q:\n%s", want, screen)
+		}
+	}
+	if cmd != nil {
+		t.Error("asked for a refresh without a Live reader")
+	}
+
+	m = press(t, m, down)
+	if strings.Contains(view(m), "(pid") {
+		t.Errorf("a closed session has a status:\n%s", view(m))
+	}
+}
+
+func TestLiveStatusRefreshesUntilTheScreenCloses(t *testing.T) {
+	cfg := Config{Live: func(context.Context) map[string]claudesessions.Live { return nil }}
+	m := loaded(t, cfg)
+
+	next, cmd := m.Update(liveMsg{"s1": {Activity: claudesessions.Idle, PID: 1}})
+	if cmd == nil || !strings.Contains(view(next.(Model)), "○ idle") {
+		t.Fatalf("no refresh scheduled, or no idle status:\n%s", view(next.(Model)))
+	}
+
+	m = press(t, next.(Model), esc)
+	if _, cmd := m.Update(liveMsg{}); cmd != nil {
+		t.Error("kept refreshing after quitting")
+	}
+}

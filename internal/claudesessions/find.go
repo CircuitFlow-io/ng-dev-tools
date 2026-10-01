@@ -19,11 +19,14 @@ const (
 
 // Dir is where Claude Code keeps its sessions: $CLAUDE_CONFIG_DIR/projects, or ~/.claude/projects.
 func Dir(home string, getenv func(string) string) string {
-	base := getenv(configDirVariable)
-	if base == "" {
-		base = filepath.Join(home, defaultConfigDir)
+	return filepath.Join(configDir(home, getenv), projectsDirName)
+}
+
+func configDir(home string, getenv func(string) string) string {
+	if dir := getenv(configDirVariable); dir != "" {
+		return dir
 	}
-	return filepath.Join(base, projectsDirName)
+	return filepath.Join(home, defaultConfigDir)
 }
 
 // FindAll reads every session in dir, most recently active first. Sessions without a prompt,

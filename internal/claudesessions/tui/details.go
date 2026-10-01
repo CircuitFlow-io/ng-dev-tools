@@ -29,12 +29,13 @@ var (
 // detailsInput is what the details box describes.
 type detailsInput struct {
 	result  claudesessions.Result
+	live    claudesessions.Live
 	missing bool
 	now     time.Time
 	home    string
 }
 
-// details describes the session under the cursor: its title, folder, when and how long it ran,
+// details describes the session under the cursor: its title and what Claude is doing with it, folder, when and how long it ran,
 // its models and pull requests, and its first and last prompts, or where the search matched.
 func details(in detailsInput, ok bool, width int) string {
 	inner := width - detailFrameWidth
@@ -43,7 +44,7 @@ func details(in detailsInput, ok bool, width int) string {
 	}
 	s := in.result.Session
 	lines := []string{
-		titleLine(s),
+		titleLine(s, in.live, in.now),
 		folderLine(s, in.missing, in.home),
 		factsLine(s, in.now),
 	}
@@ -62,12 +63,16 @@ func details(in detailsInput, ok bool, width int) string {
 	return detailBox.Width(width).Render(padLines(lines))
 }
 
-func titleLine(s claudesessions.Session) string {
+func titleLine(s claudesessions.Session, live claudesessions.Live, now time.Time) string {
 	title := s.Title
 	if title == "" {
 		title = untitled
 	}
-	return ui.Bold.Render(title) + ui.Muted.Render("  "+s.ID)
+	line := ui.Bold.Render(title) + ui.Muted.Render("  "+s.ID)
+	if summary := liveSummary(live, now); summary != "" {
+		line += "  " + statusStyle(live).Render(summary)
+	}
+	return line
 }
 
 func folderLine(s claudesessions.Session, missing bool, home string) string {

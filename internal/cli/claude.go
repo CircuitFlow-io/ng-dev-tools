@@ -42,7 +42,9 @@ func newClaudeSessionsCmd() *cobra.Command {
 		Aliases: []string{"session"},
 		Short:   "Every Claude Code session across your projects; search them and resume one",
 		Long: `List every saved Claude Code session, from every folder, most recently active first, with its
-first prompt, last activity, git branch, number of prompts and model. Type to search everything
+first prompt, last activity, status, git branch, number of prompts and model. The status says
+what Claude is doing with a session that is open: working, waiting on you (such as for a
+permission) or idle after finishing its turn. Closed sessions have none. Type to search everything
 said in them (your prompts and Claude's replies) and their titles, folders and branches; the
 details box shows where the search matched.
 
@@ -66,11 +68,15 @@ func runClaudeSessions(ctx context.Context, out io.Writer, query string) error {
 	find := func(ctx context.Context) ([]claudesessions.Session, map[string]error, error) {
 		return claudesessions.FindAll(ctx, dir)
 	}
+	liveDir := claudesessions.LiveDir(home, os.Getenv)
+	live := func(ctx context.Context) map[string]claudesessions.Live {
+		return claudesessions.ReadLive(ctx, liveDir, claudesessions.PSStartTimes)
+	}
 	if !term.IsTerminal(int(os.Stdout.Fd())) {
-		return printClaudeSessions(ctx, out, find, query, home)
+		return printClaudeSessions(ctx, out, find, live, query, home)
 	}
 
-	cfg := tui.Config{Dir: dir, Home: home, Root: filepath.Join(home, defaultProjectsDir), Query: query, Find: find}
+	cfg := tui.Config{Dir: dir, Home: home, Root: filepath.Join(home, defaultProjectsDir), Query: query, Find: find, Live: live}
 	final, err := tea.NewProgram(tui.New(ctx, cfg)).Run()
 	if err != nil {
 		return err
@@ -96,13 +102,19 @@ func sessionName(s claudesessions.Session) string {
 
 // printClaudeSessions lists the sessions matching query as plain text, for when output is not a
 // terminal.
-func printClaudeSessions(ctx context.Context, out io.Writer, find func(context.Context) ([]claudesessions.Session, map[string]error, error), query, home string) error {
+func printClaudeSessions(
+	ctx context.Context,
+	out io.Writer,
+	find func(context.Context) ([]claudesessions.Session, map[string]error, error),
+	live func(context.Context) map[string]claudesessions.Live,
+	query, home string,
+) error {
 	sessions, errs, err := find(ctx)
 	if err != nil {
 		return err
 	}
 	results := claudesessions.NewIndex(sessions).Search(query)
-	if err := writeClaudeSessions(out, results, time.Now(), home); err != nil {
+	if err := writeClaudeSessions(out, results, live(ctx), time.Now(), home); err != nil {
 		return err
 	}
 	for _, path := range slices.Sorted(maps.Keys(errs)) {
@@ -111,13 +123,14 @@ func printClaudeSessions(ctx context.Context, out io.Writer, find func(context.C
 	return nil
 }
 
-func writeClaudeSessions(out io.Writer, results []claudesessions.Result, now time.Time, home string) error {
+func writeClaudeSessions(out io.Writer, results []claudesessions.Result, live map[string]claudesessions.Live, now time.Time, home string) error {
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ACTIVE\tFOLDER\tBRANCH\tPROMPTS\tMODEL\tSESSION\tFIRST PROMPT")
+	fmt.Fprintln(w, "ACTIVE\tSTATUS\tFOLDER\tBRANCH\tPROMPTS\tMODEL\tSESSION\tFIRST PROMPT")
 	for _, r := range results {
 		s := r.Session
 		fmt.Fprintln(w, strings.Join([]string{
 			ui.Ago(now, s.LastActive),
+			live[s.ID].Activity.String(),
 			ui.TildePath(s.Dir, home),
 			s.Branch,
 			strconv.Itoa(s.Prompts),
