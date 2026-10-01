@@ -105,7 +105,7 @@ type Model struct {
 	list       list
 	clones     map[string]string
 	picker     idepicker.Picker
-	pickingFor string
+	pickingFor pulls.PR
 	logs       logView
 	flash      string
 	err        error
@@ -310,23 +310,29 @@ func (m Model) checkout(p pulls.PR) (tea.Model, tea.Cmd) {
 		return m.notCloned(p)
 	}
 	m.working = true
-	name := filepath.Base(dir)
-	m.flash = ui.Muted.Render("Checking out " + p.HeadRef + " in " + name + "…")
-	previous := projects.Branch(dir)
+	m.flash = ui.Muted.Render("Checking out " + p.HeadRef + " in " + filepath.Base(dir) + "…")
 	return m, tea.Batch(m.startTicking(), func() tea.Msg {
-		if err := m.cfg.Checkout(m.ctx, dir, p); err != nil {
-			return actionMsg{err: fmt.Errorf("could not check out %s in %s: %w", p.Ref(), name, err)}
-		}
-		done := "Checked out " + p.HeadRef + " in " + name
-		if previous != "" && previous != p.HeadRef {
-			done += " (was " + previous + ")"
-		}
-		return actionMsg{done: done}
+		done, err := m.checkoutIn(dir, p)
+		return actionMsg{done: done, err: err}
 	})
 }
 
-// chooseIDE shows the IDE box for p's local project, or opens it straight away when only one IDE
-// is installed.
+// checkoutIn switches the clone in dir to p's branch and says so, naming the branch it was on.
+func (m Model) checkoutIn(dir string, p pulls.PR) (string, error) {
+	name := filepath.Base(dir)
+	previous := projects.Branch(dir)
+	if err := m.cfg.Checkout(m.ctx, dir, p); err != nil {
+		return "", fmt.Errorf("could not check out %s in %s: %w", p.Ref(), name, err)
+	}
+	done := "Checked out " + p.HeadRef + " in " + name
+	if previous != "" && previous != p.HeadRef {
+		done += " (was " + previous + ")"
+	}
+	return done, nil
+}
+
+// chooseIDE shows the IDE box for p's local project, or opens it on p's branch straight away when
+// only one IDE is installed.
 func (m Model) chooseIDE(p pulls.PR) (tea.Model, tea.Cmd) {
 	dir, ok := m.clone(p)
 	if !ok {
@@ -337,11 +343,11 @@ func (m Model) chooseIDE(p pulls.PR) (tea.Model, tea.Cmd) {
 		m.flash = ui.Warning.Render(errNoIDE.Error())
 		return m, nil
 	case 1:
-		return m.openInIDE(dir, m.cfg.IDEs[0])
+		return m.openInIDE(dir, p, m.cfg.IDEs[0])
 	}
 	m.picker = idepicker.New(m.cfg.IDEs, m.cfg.ProjectIDEs[dir], m.cfg.DefaultIDE)
 	m.picker.SetHighlight(ui.HighlightColor(m.darkBG))
-	m.pickingFor = dir
+	m.pickingFor = p
 	m.state = stateChoosingIDE
 	return m, nil
 }
@@ -353,22 +359,37 @@ func (m Model) updateChoosingIDE(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "enter":
 		m.state = stateListing
-		return m.openInIDE(m.pickingFor, m.picker.Current())
+		dir, _ := m.clone(m.pickingFor)
+		return m.openInIDE(dir, m.pickingFor, m.picker.Current())
 	case "esc", "q":
 		m.state = stateListing
 	}
 	return m, nil
 }
 
-func (m Model) openInIDE(dir string, editor ide.IDE) (tea.Model, tea.Cmd) {
+// openInIDE checks out p's branch in the clone in dir, unless it is already there, and then opens
+// the clone in editor. A refused checkout, such as over uncommitted changes, opens nothing.
+func (m Model) openInIDE(dir string, p pulls.PR, editor ide.IDE) (tea.Model, tea.Cmd) {
 	m.working = true
 	name := filepath.Base(dir)
-	m.flash = ui.Muted.Render("Opening " + name + " in " + editor.Name + "…")
+	onBranch := projects.Branch(dir) == p.HeadRef
+	m.flash = ui.Muted.Render("Checking out " + p.HeadRef + " in " + name + " and opening it in " + editor.Name + "…")
+	if onBranch {
+		m.flash = ui.Muted.Render("Opening " + name + " in " + editor.Name + "…")
+	}
 	return m, tea.Batch(m.startTicking(), func() tea.Msg {
+		done := "Opened " + name + " in " + editor.Name + " on " + p.HeadRef
+		if !onBranch {
+			checkedOut, err := m.checkoutIn(dir, p)
+			if err != nil {
+				return actionMsg{err: err}
+			}
+			done = checkedOut + " and opened it in " + editor.Name
+		}
 		if err := m.cfg.Open(dir, editor); err != nil {
 			return actionMsg{err: err}
 		}
-		return actionMsg{done: "Opened " + name + " in " + editor.Name, opened: &openedIn{path: dir, editor: editor}}
+		return actionMsg{done: done, opened: &openedIn{path: dir, editor: editor}}
 	})
 }
 
@@ -440,7 +461,8 @@ func (m Model) View() tea.View {
 	case stateListing:
 		content = m.listView()
 	case stateChoosingIDE:
-		content = m.picker.View(filepath.Base(m.pickingFor))
+		dir, _ := m.clone(m.pickingFor)
+		content = m.picker.View(filepath.Base(dir) + " on " + m.pickingFor.HeadRef)
 	case stateViewingLog:
 		content = m.logs.view(m.spinner.View())
 	case stateDone:

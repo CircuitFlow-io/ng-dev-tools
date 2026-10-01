@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 
 	"golang.org/x/sync/errgroup"
@@ -14,6 +13,8 @@ const (
 	configDirVariable = "CLAUDE_CONFIG_DIR"
 	defaultConfigDir  = ".claude"
 	projectsDirName   = "projects"
+	// maxParallelReads is small because one transcript line can hold megabytes of tool output.
+	maxParallelReads = 4
 )
 
 // Dir is where Claude Code keeps its sessions: $CLAUDE_CONFIG_DIR/projects, or ~/.claude/projects.
@@ -39,7 +40,7 @@ func FindAll(ctx context.Context, dir string) (sessions []Session, errs map[stri
 	read := make([]Session, len(paths))
 	failed := make([]error, len(paths))
 	g, gctx := errgroup.WithContext(ctx)
-	g.SetLimit(runtime.GOMAXPROCS(0))
+	g.SetLimit(maxParallelReads)
 	for i, path := range paths {
 		g.Go(func() error {
 			if gctx.Err() == nil {
