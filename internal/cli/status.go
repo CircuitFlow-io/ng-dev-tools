@@ -91,6 +91,7 @@ func runStatus(ctx context.Context, out, notices io.Writer, mode outputMode, fla
 		ProjectIDEs:  state.ProjectIDEs,
 		DefaultIDE:   state.IDE,
 		Open:         ideOpener(ctx, runner, store, &state),
+		OpenURL:      browserOpener(ctx, runner),
 	}
 	final, err := tea.NewProgram(tui.New(ctx, cfg)).Run()
 	if err != nil {

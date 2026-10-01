@@ -65,7 +65,8 @@ Settings:
                flag uses it when --root is not given.
   jiraHost     Jira site, such as acme.atlassian.net. Ticket keys like TS-1234 in branch names,
                commit subjects, pull request titles and TODO notes become links to their page,
-               clickable in terminals that support links (cmd+click in iTerm2, Ghostty, WezTerm).
+               clickable in terminals that support links (cmd+click in iTerm2, Ghostty, WezTerm,
+               Warp). In any terminal, t (ctrl+t in claude sessions) opens the selected row's ticket.
 
 The settings are kept in ~/.config/ngt/settings.json.`,
 		Example: "  ngt settings\n  ngt settings set projectsDir ~/work\n  ngt settings set jiraHost acme.atlassian.net\n" +

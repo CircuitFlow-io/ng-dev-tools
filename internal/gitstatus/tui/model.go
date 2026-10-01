@@ -55,6 +55,8 @@ type Config struct {
 	DefaultIDE  string
 	// Open opens a project in an IDE and remembers the choice.
 	Open func(path string, editor ide.IDE) error
+	// OpenURL opens a page in the browser.
+	OpenURL func(url string) error
 }
 
 type loadedMsg struct {
@@ -71,6 +73,10 @@ type openedMsg struct {
 	repo   gitstatus.Repo
 	editor ide.IDE
 	err    error
+}
+
+type urlOpenedMsg struct {
+	err error
 }
 
 // Model is the Bubble Tea model driving the status screen.
@@ -153,6 +159,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.fetched(msg)
 	case openedMsg:
 		return m.opened(msg)
+	case urlOpenedMsg:
+		if msg.err != nil {
+			m.flash = ui.Warning.Render("Could not open the ticket: " + msg.err.Error())
+		}
+		return m, nil
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			return m.quit()
@@ -238,6 +249,8 @@ func (m Model) updateListing(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.fetchCurrent()
 	case "F":
 		return m.fetchAll()
+	case "t":
+		return m.openTicket()
 	case "r":
 		return m.refresh()
 	}
@@ -343,6 +356,21 @@ func (m Model) open(repo gitstatus.Repo, editor ide.IDE) (tea.Model, tea.Cmd) {
 	}
 }
 
+// openTicket opens the page of the ticket named in the selected repository's branch.
+func (m Model) openTicket() (tea.Model, tea.Cmd) {
+	repo, ok := m.table.current()
+	if !ok {
+		return m, nil
+	}
+	ticket, ok := ui.FindTicket(repo.Branch)
+	if !ok {
+		m.flash = ui.Muted.Render(ui.NoTicketReason(repo.Branch))
+		return m, nil
+	}
+	m.flash = ui.Muted.Render("Opening " + ticket.Key + " in your browser…")
+	return m, func() tea.Msg { return urlOpenedMsg{err: m.cfg.OpenURL(ticket.URL)} }
+}
+
 func (m Model) opened(msg openedMsg) (tea.Model, tea.Cmd) {
 	m.opening = false
 	if msg.err != nil {
@@ -405,10 +433,11 @@ func (m Model) title() string {
 }
 
 func (m Model) help() string {
+	keys := ui.WithTicketHelp(listHelp, "t")
 	if m.flash == "" {
-		return ui.Help.Render(listHelp)
+		return ui.Help.Render(keys)
 	}
-	return ui.Help.Render(m.flash + flashGap + ui.Muted.Render(listHelp))
+	return ui.Help.Render(m.flash + flashGap + ui.Muted.Render(keys))
 }
 
 func (m Model) quit() (tea.Model, tea.Cmd) {

@@ -88,7 +88,7 @@ func runTodo(ctx context.Context, out, notices io.Writer, mode outputMode, flags
 		Root:        root,
 		Home:        home,
 		Find:        find,
-		OpenURL:     func(url string) error { _, err := runner.Run(ctx, "open", url); return err },
+		OpenURL:     browserOpener(ctx, runner),
 		IDEs:        ide.Detect(ide.SearchDirs(home)),
 		ProjectIDEs: state.ProjectIDEs,
 		DefaultIDE:  state.IDE,

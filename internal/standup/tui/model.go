@@ -195,6 +195,8 @@ func (m Model) handleKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.quit()
 	case "enter", "o":
 		return m.open()
+	case "t":
+		return m.openTicket()
 	case "[":
 		return m.reload(m.shown().AddDate(0, 0, -1))
 	case "]":
@@ -277,6 +279,21 @@ func (m Model) open() (tea.Model, tea.Cmd) {
 	return m, func() tea.Msg { return urlOpenedMsg{err: m.cfg.OpenURL(r.url)} }
 }
 
+// openTicket opens the page of the ticket named in the selected row's title, subject or branch.
+func (m Model) openTicket() (tea.Model, tea.Cmd) {
+	if len(m.rows) == 0 {
+		return m, nil
+	}
+	r := m.rows[m.cursor.Index]
+	ticket, ok := ui.FindTicket(r.left.Text())
+	if !ok {
+		m.flash = ui.Muted.Render(ui.NoTicketReason(r.what))
+		return m, nil
+	}
+	m.flash = ui.Muted.Render("Opening " + ticket.Key + " in your browser…")
+	return m, func() tea.Msg { return urlOpenedMsg{err: m.cfg.OpenURL(ticket.URL)} }
+}
+
 func noURLReason(r row) string {
 	switch r.kind {
 	case inProgressRow:
@@ -340,9 +357,10 @@ func (m Model) rowsView(width int) string {
 
 // help is the key hints, after the latest action's result when there is one, cut to the width.
 func (m Model) help(width int) string {
-	line := help
+	keys := ui.WithTicketHelp(help, "t")
+	line := keys
 	if m.flash != "" {
-		line = m.flash + flashGap + ui.Muted.Render(help)
+		line = m.flash + flashGap + ui.Muted.Render(keys)
 	}
 	return ui.Help.Render(ui.FitLine(line, width))
 }

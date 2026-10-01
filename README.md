@@ -104,7 +104,7 @@ Columns: changes as `+staged ~modified ?untracked !conflicted`, sync with the up
 
 It only reads (with `--no-optional-locks`, so looking never rewrites the index) and never contacts a remote unless asked. `--fetch`, `f` and `F` run `git fetch`, which updates remote-tracking branches and nothing else: no pull, merge or prune. A fetch that would need a password or passphrase fails instead of prompting. Enter opens the repository in its IDE with the same box as `ngt open`, and remembers the choice.
 
-Keys: `↑/↓` move, `enter` open in IDE, `f` fetch the selected repository, `F` fetch all, `r` refresh, `q` quit.
+Keys: `↑/↓` move, `enter` open in IDE, `f` fetch the selected repository, `F` fetch all, `t` open the branch's Jira ticket, `r` refresh, `q` quit.
 
 ### `ngt prs`
 
@@ -122,7 +122,7 @@ It reads GitHub with one GraphQL request through the `gh` CLI, so it uses your `
 - `i` checks out the pull request's branch, like `c`, then opens the local clone in its IDE, with the same box as `ngt open`. It skips the checkout when the clone is already on that branch, and opens nothing when the checkout is refused.
 - `l` shows the log of the failed GitHub Actions steps, scrolled to the end; `tab` moves to the next failed check and `o` opens the job page. GitHub keeps these logs for 90 days.
 
-Keys: `↑/↓` move, `enter` browser, `c` check out (or clone), `i` IDE, `l` failed log, `r` refresh, `q` quit.
+Keys: `↑/↓` move, `enter` browser, `c` check out (or clone), `i` IDE, `l` failed log, `t` open the Jira ticket in the title or branch, `r` refresh, `q` quit.
 
 ### `ngt env`
 
@@ -158,7 +158,7 @@ The details box shows who added the line, when and in which commit, with the cod
 - `o` opens the commit that added the line on GitHub, once it is pushed.
 - `m` shows only the lines you wrote: lines not committed yet, and lines whose author has any `user.email` or `user.name` set for that repository (global ones included), or your GitHub account (profile name, or a `users.noreply.github.com` address), so squash merges made on GitHub count too. Any email one of your lines carries then makes other lines with that email yours.
 
-Keys: `↑/↓` move, `enter` open in IDE, `o` open commit, `m` mine only, `r` refresh, `q` quit.
+Keys: `↑/↓` move, `enter` open in IDE, `o` open commit, `t` open the Jira ticket in the note or its commit, `m` mine only, `r` refresh, `q` quit.
 
 ### `ngt standup`
 
@@ -178,7 +178,7 @@ The last day you worked is the most recent day before today with a commit of you
 - `In progress` lists the repositories with uncommitted changes or commits not pushed yet, as `ngt status` sees them.
 - GitHub is read through `gh`. Without it, or when it is not logged in, the report only has local work and the title says why.
 
-Keys: `↑/↓` move, `enter`/`o` open the pull request, commit or branch on GitHub, `[` start a day earlier, `]` a day later, `r` refresh, `q` quit.
+Keys: `↑/↓` move, `enter`/`o` open the pull request, commit or branch on GitHub, `[` start a day earlier, `]` a day later, `t` open the Jira ticket in the row, `r` refresh, `q` quit.
 
 ### `ngt claude sessions`
 
@@ -200,7 +200,7 @@ Typing searches your prompts, Claude's replies and each session's title, folder,
 
 Sessions are read from `~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects`. It only reads them, 4 at a time, and skips transcript lines over 16 MB, which hold tool output such as screenshots.
 
-Keys: type to search, `↑/↓` move, `enter` resume, `esc` clear the search or quit.
+Keys: type to search, `↑/↓` move, `enter` resume, `ctrl+t` open the Jira ticket in the title, branch or first prompt, `esc` clear the search or quit.
 
 ### `ngt settings`
 
@@ -215,7 +215,7 @@ cd "$(ngt settings get projectsDir)"
 ```
 
 - `projectsDir` is the folder that holds your projects, `~/projects` by default. `open`, `run`, `status`, `prs`, `env`, `todo`, `standup` and `claude sessions` read it, and `--root` still overrides it for one run. `clean` searches it for stale build folders alongside `~/Developer`, `~/code`, `~/src` and `~/workspace`. It must be an existing folder; a relative path or a quoted `~` is resolved when you set it.
-- `jiraHost` is your Jira site. Ticket keys such as `TS-234455` or `COREX-344` in branch names, commit subjects, pull request titles, session titles and TODO notes become underlined links to `https://<jiraHost>/browse/<key>`, clickable in terminals that support links (cmd+click in iTerm2, Ghostty, WezTerm or Kitty). It takes a host or any address on the site, such as a ticket's page, and keeps a folder Jira is served from (`jira.example.com/jira`). A key is any uppercase project key, a dash and a number, so the odd `UTF-8` gets a link too.
+- `jiraHost` is your Jira site. Ticket keys such as `TS-234455` or `COREX-344` in branch names, commit subjects, pull request titles, session titles and TODO notes become underlined links to `https://<jiraHost>/browse/<key>`, clickable in terminals that support links (cmd+click in iTerm2, Ghostty, WezTerm, Kitty or Warp). Terminal.app shows them as plain text, and Wave asks to open them but then does not; in any terminal, `t` (`ctrl+t` in `claude sessions`) opens the selected row's ticket in your browser. It takes a host or any address on the site, such as a ticket's page, and keeps a folder Jira is served from (`jira.example.com/jira`). A key is any uppercase project key, a dash and a number, so the odd `UTF-8` gets a link too.
 
 ## Output for scripts and AI agents
 
