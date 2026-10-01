@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -208,7 +209,7 @@ func TestOpenSessionsShowWhatClaudeIsDoing(t *testing.T) {
 		"s1": {Activity: claudesessions.Waiting, WaitingFor: "permission", Since: now.Add(-3 * time.Minute), PID: 4044, Entrypoint: "cli"},
 	}
 	m := loaded(t, Config{})
-	next, cmd := m.Update(liveMsg(live))
+	next, cmd := m.Update(liveMsg{live: live})
 	m = next.(Model)
 	screen := view(m)
 
@@ -234,7 +235,7 @@ func TestLiveStatusRefreshesUntilTheScreenCloses(t *testing.T) {
 	cfg := Config{Live: func(context.Context) map[string]claudesessions.Live { return nil }}
 	m := loaded(t, cfg)
 
-	next, cmd := m.Update(liveMsg{"s1": {Activity: claudesessions.Idle, PID: 1}})
+	next, cmd := m.Update(liveMsg{live: map[string]claudesessions.Live{"s1": {Activity: claudesessions.Idle, PID: 1}}})
 	if cmd == nil || !strings.Contains(view(next.(Model)), "○ idle") {
 		t.Fatalf("no refresh scheduled, or no idle status:\n%s", view(next.(Model)))
 	}
@@ -242,5 +243,68 @@ func TestLiveStatusRefreshesUntilTheScreenCloses(t *testing.T) {
 	m = press(t, next.(Model), esc)
 	if _, cmd := m.Update(liveMsg{}); cmd != nil {
 		t.Error("kept refreshing after quitting")
+	}
+}
+
+func TestDetailsShowTheTokensUsed(t *testing.T) {
+	m := loaded(t, Config{})
+	if strings.Contains(view(m), "Tokens") {
+		t.Errorf("a session without usage shows tokens:\n%s", view(m))
+	}
+
+	s1 := m.table.results[0].Session
+	s1.Usage = claudesessions.Usage{Input: 82, CacheWrite: 109_248, CacheRead: 4_874_452, Output: 31_118, Context: 148_841}
+	m.table.results[0].Session = s1
+	want := "Tokens  148k context · 82 in · 31k out · 4.9M cache read · 109k cache written"
+	if !strings.Contains(view(m), want) {
+		t.Errorf("screen is missing %q:\n%s", want, view(m))
+	}
+
+	next, _ := m.Update(liveMsg{usage: map[string]claudesessions.Usage{"s1": {Context: 150_000, Output: 32_000}}})
+	if !strings.Contains(view(next.(Model)), "150k context") {
+		t.Errorf("live usage not shown:\n%s", view(next.(Model)))
+	}
+}
+
+func TestRefreshFollowsTheTranscriptsOfOpenSessions(t *testing.T) {
+	const reply = `{"type":"assistant","message":{"id":"%s","model":"claude-opus-5-5","usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":%d,"output_tokens":5}}}` + "\n"
+	dir := t.TempDir()
+	path := filepath.Join(dir, "open.jsonl")
+	writeFile(t, path, `{"type":"user","cwd":"/p","message":{"role":"user","content":"hi"}}`+"\n"+fmt.Sprintf(reply, "m1", 100))
+	open, err := claudesessions.Read(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := New(context.Background(), Config{})
+	m.sessions = map[string]claudesessions.Session{"open": open}
+	live := map[string]claudesessions.Live{"open": {Activity: claudesessions.Working}, "elsewhere": {Activity: claudesessions.Idle}}
+
+	appendFile(t, path, fmt.Sprintf(reply, "m2", 200))
+	usage := m.followUsage(live)
+
+	if got := usage["open"]; got.Output != 10 || got.Context != 201 {
+		t.Errorf("open session's usage = %+v", got)
+	}
+	if len(usage) != 1 {
+		t.Errorf("followed sessions it does not know: %v", usage)
+	}
+}
+
+func writeFile(t *testing.T, path, text string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func appendFile(t *testing.T, path, text string) {
+	t.Helper()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if _, err := f.WriteString(text); err != nil {
+		t.Fatal(err)
 	}
 }

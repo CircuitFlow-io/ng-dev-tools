@@ -192,7 +192,9 @@ ngt claude sessions | grep memorit   # plain table, with session ids, when not a
 
 The status shows what Claude is doing with a session that is open right now, in a terminal, the Claude app or an editor: `working` while it runs a turn, `waiting` when it needs you (such as a permission prompt) and `idle` once it has finished its turn. It is read from the status file each running Claude Code keeps in `~/.claude/sessions` and refreshes every 2 seconds; a closed session has none.
 
-Typing searches your prompts, Claude's replies and each session's title, folder, branches and models; every word must appear, in either case. The details box shows the session's title, folder, every branch it was on, when it started, its size, the replies per model, the pull requests it opened, its first and last prompts, and, while searching, the line that matched.
+The tokens are what the API reported for each reply, subagents' included: the context size at the latest reply (how full the conversation is, which decides when it compacts), then the input, output, cache reads and cache writes added up over the session. While a session is open its counts follow its transcript, reading only what was added since the last refresh.
+
+Typing searches your prompts, Claude's replies and each session's title, folder, branches and models; every word must appear, in either case. The details box shows the session's title, folder, every branch it was on, when it started, its size, the replies per model, the tokens it used, the pull requests it opened, its first and last prompts, and, while searching, the line that matched.
 
 `enter` replaces ngt with `claude --resume <id>` in the folder the session belongs to, so it continues where it was saved. A folder that was moved or deleted is struck through and cannot be resumed. Slash commands, shell commands, background task notices and subagents' transcripts do not count as prompts; a session without any prompt is left out.
 

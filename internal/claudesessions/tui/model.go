@@ -57,7 +57,11 @@ type foundMsg struct {
 	err      error
 }
 
-type liveMsg map[string]claudesessions.Live
+// liveMsg is what Claude is doing with each open session, and the tokens each has used so far.
+type liveMsg struct {
+	live  map[string]claudesessions.Live
+	usage map[string]claudesessions.Usage
+}
 
 // Model is the Bubble Tea model driving the sessions screen.
 type Model struct {
@@ -70,6 +74,9 @@ type Model struct {
 	height     int
 	spinner    spinner.Model
 	index      claudesessions.Index
+	sessions   map[string]claudesessions.Session
+	tails      map[string]*claudesessions.UsageTail
+	usage      map[string]claudesessions.Usage
 	folders    int
 	unreadable int
 	query      string
@@ -92,6 +99,7 @@ func New(ctx context.Context, cfg Config) Model {
 		spinner: spinner.New(spinner.WithSpinner(spinner.Points), spinner.WithStyle(ui.Title)),
 		query:   cfg.Query,
 		table:   newTable(cfg.Home, cfg.Root),
+		tails:   map[string]*claudesessions.UsageTail{},
 	}
 	m.table.highlight = ui.HighlightColor(true)
 	m.resize(m.width, m.height)
@@ -113,12 +121,37 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(m.spinner.Tick, m.find(), m.watchLive(0), tea.RequestBackgroundColor)
 }
 
-// watchLive reads the status of open sessions after delay.
+// watchLive reads the status and token usage of open sessions after delay.
 func (m Model) watchLive(delay time.Duration) tea.Cmd {
 	if m.cfg.Live == nil {
 		return nil
 	}
-	return tea.Tick(delay, func(time.Time) tea.Msg { return liveMsg(m.cfg.Live(m.ctx)) })
+	return tea.Tick(delay, func(time.Time) tea.Msg {
+		live := m.cfg.Live(m.ctx)
+		return liveMsg{live: live, usage: m.followUsage(live)}
+	})
+}
+
+// followUsage reads what the open sessions have added to their transcripts. Only the refresh
+// command calls it, one refresh at a time, so the tails shared by every copy of the model need no
+// lock.
+func (m Model) followUsage(live map[string]claudesessions.Live) map[string]claudesessions.Usage {
+	usage := map[string]claudesessions.Usage{}
+	for id := range live {
+		s, ok := m.sessions[id]
+		if !ok {
+			continue
+		}
+		tail, ok := m.tails[id]
+		if !ok {
+			tail = s.FollowUsage()
+			m.tails[id] = tail
+		}
+		if total, err := tail.Read(); err == nil {
+			usage[id] = total
+		}
+	}
+	return usage
 }
 
 func (m Model) find() tea.Cmd {
@@ -174,7 +207,9 @@ func (m Model) showSessions(msg foundMsg) (tea.Model, tea.Cmd) {
 		return m.quit()
 	}
 	dirs := map[string]bool{}
+	m.sessions = make(map[string]claudesessions.Session, len(msg.sessions))
 	for _, s := range msg.sessions {
+		m.sessions[s.ID] = s
 		if _, seen := dirs[s.Dir]; !seen {
 			dirs[s.Dir] = true
 			m.table.missing[s.Dir] = !s.DirExists()
@@ -188,11 +223,12 @@ func (m Model) showSessions(msg foundMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) showLive(live liveMsg) (tea.Model, tea.Cmd) {
+func (m Model) showLive(msg liveMsg) (tea.Model, tea.Cmd) {
 	if m.state == stateDone {
 		return m, nil
 	}
-	m.table.live = live
+	m.table.live = msg.live
+	m.usage = msg.usage
 	m.table.now = time.Now()
 	return m, m.watchLive(liveRefresh)
 }
@@ -273,6 +309,7 @@ func (m Model) listView() string {
 	in := detailsInput{
 		result:  result,
 		live:    m.table.live[result.Session.ID],
+		usage:   m.currentUsage(result.Session),
 		missing: m.table.missing[result.Session.Dir],
 		now:     m.table.now,
 		home:    m.cfg.Home,
@@ -287,6 +324,14 @@ func (m Model) listView() string {
 		m.help(width),
 	}
 	return strings.Join(lines, "\n")
+}
+
+// currentUsage is the session's usage as last followed while it is open, or as it was read.
+func (m Model) currentUsage(s claudesessions.Session) claudesessions.Usage {
+	if usage, ok := m.usage[s.ID]; ok {
+		return usage
+	}
+	return s.Usage
 }
 
 func (m Model) title() string {

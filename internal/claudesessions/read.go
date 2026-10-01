@@ -56,6 +56,7 @@ type message struct {
 	ID      string          `json:"id"`
 	Model   string          `json:"model"`
 	Content json.RawMessage `json:"content"`
+	Usage   *apiUsage       `json:"usage"`
 }
 
 type contentBlock struct {
@@ -91,9 +92,11 @@ func Read(path string) (Session, error) {
 	}}
 	r := bufio.NewReaderSize(f, readBufferBytes)
 	var line []byte
+	var wholeLines int64
 	for {
+		var size int64
 		var tooLong bool
-		line, tooLong, err = readLine(r, line[:0])
+		line, size, tooLong, err = readLine(r, line[:0])
 		var rec record
 		if !tooLong && json.Unmarshal(line, &rec) == nil {
 			b.add(rec)
@@ -104,20 +107,25 @@ func Read(path string) (Session, error) {
 		if err != nil {
 			return Session{}, err
 		}
+		wholeLines += size
 	}
-	return b.finish(filepath.Base(filepath.Dir(path)), info.ModTime()), nil
+	s := b.finish(filepath.Base(filepath.Dir(path)), info.ModTime())
+	s.usageTail = UsageTail{path: path, offset: wholeLines, counter: b.usage}
+	return s, nil
 }
 
 // readLine appends the next line to buf, unless it is over maxRecordBytes, which it reads past.
-func readLine(r *bufio.Reader, buf []byte) (line []byte, tooLong bool, err error) {
+// size is the bytes the line took, its newline included.
+func readLine(r *bufio.Reader, buf []byte) (line []byte, size int64, tooLong bool, err error) {
 	for {
 		chunk, err := r.ReadSlice('\n')
+		size += int64(len(chunk))
 		tooLong = tooLong || len(buf)+len(chunk) > maxRecordBytes
 		if !tooLong {
 			buf = append(buf, chunk...)
 		}
 		if !errors.Is(err, bufio.ErrBufferFull) {
-			return buf, tooLong, err
+			return buf, size, tooLong, err
 		}
 	}
 }
@@ -131,9 +139,11 @@ type builder struct {
 	aiTitle       string
 	models        map[string]int
 	lastMessageID string
+	usage         usageCounter
 }
 
 func (b *builder) add(rec record) {
+	b.usage.add(rec)
 	switch rec.Type {
 	case "custom-title":
 		b.customTitle = rec.CustomTitle
@@ -223,6 +233,7 @@ func (b *builder) finish(storageDir string, modified time.Time) Session {
 	if s.LastActive.IsZero() {
 		s.LastActive = modified
 	}
+	s.Usage = b.usage.total
 	for id, replies := range b.models {
 		s.Models = append(s.Models, ModelUse{ID: id, Replies: replies})
 	}

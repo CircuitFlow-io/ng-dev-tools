@@ -29,6 +29,9 @@ type Session struct {
 	Models []ModelUse
 	PRs    []string
 	Size   int64
+	// Usage is the tokens used up to when the transcript was read; FollowUsage keeps it current.
+	Usage     Usage
+	usageTail UsageTail
 	// Turns is the text of the prompts and replies, for searching.
 	Turns []Turn
 }
