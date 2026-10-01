@@ -137,7 +137,7 @@ func TestFindWithoutMatches(t *testing.T) {
 }
 
 func TestRepoLinksPushedCommitsOnly(t *testing.T) {
-	r := repo{email: "me@example.com", github: "acme/api", unpushed: map[string]bool{"bbb": true}}
+	r := repo{me: identity{emails: []string{"me@example.com"}}, github: "acme/api", unpushed: map[string]bool{"bbb": true}}
 	pushed := Item{Commit: "aaa", Email: "ME@example.com"}
 	r.finish(&pushed)
 	if pushed.CommitURL != "https://github.com/acme/api/commit/aaa" || !pushed.Mine {

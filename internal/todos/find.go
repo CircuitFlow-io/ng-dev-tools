@@ -28,6 +28,8 @@ func FindAll(ctx context.Context, runner macos.Runner, root string) (items []Ite
 		return nil, nil, err
 	}
 	dirs = slices.DeleteFunc(dirs, func(dir string) bool { return projects.GitDir(dir) == "" })
+	github := make(chan identity, 1)
+	go func() { github <- githubIdentity(ctx, runner) }()
 	runner = limitRunner(runner, maxGitProcesses)
 	found := make([][]Item, len(dirs))
 	failed := make([]error, len(dirs))
@@ -50,6 +52,7 @@ func FindAll(ctx context.Context, runner macos.Runner, root string) (items []Ite
 		}
 	}
 	items = slices.Concat(found...)
+	claim(items, <-github)
 	Sort(items)
 	return items, errs, nil
 }
@@ -78,6 +81,31 @@ func Find(ctx context.Context, runner macos.Runner, project, dir string) ([]Item
 		r.finish(&items[i])
 	}
 	return items, ctx.Err()
+}
+
+// claim marks the lines github wrote as yours, then every line by an email your lines carry: one
+// person commits under several names, such as a work git config and a GitHub profile name.
+func claim(items []Item, github identity) {
+	markWrittenBy(items, github)
+	markWrittenBy(items, identity{emails: emailsOfYours(items)})
+}
+
+func markWrittenBy(items []Item, me identity) {
+	for i := range items {
+		if me.wrote(items[i]) {
+			items[i].Mine = true
+		}
+	}
+}
+
+func emailsOfYours(items []Item) []string {
+	var emails []string
+	for _, item := range items {
+		if item.Mine && item.Email != "" {
+			emails = append(emails, item.Email)
+		}
+	}
+	return emails
 }
 
 func git(ctx context.Context, runner macos.Runner, dir string, args ...string) ([]byte, error) {

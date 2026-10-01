@@ -42,7 +42,8 @@ blame so the longest forgotten come first. Only markers in comments count, so a 
 dependencies and build output are left out.
 
 Press enter to open the file at that line in your IDE, o to open the commit that added it on
-GitHub, and m to show only the lines you wrote.
+GitHub, and m to show only the lines you wrote. A line is yours when its author has any
+user.email or user.name set for its repository, or your GitHub profile name or noreply address.
 
 When output is not a terminal, the comments are printed instead.`,
 		Example: "  ngt todo\n  ngt todo --mine\n  ngt todo | grep FIXME",

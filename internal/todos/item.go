@@ -25,7 +25,8 @@ type Item struct {
 	Commit      string
 	Subject     string
 	Uncommitted bool
-	// Mine is whether the line is yours, by your git email in that repository.
+	// Mine is whether the line is yours: by a git user.email or user.name set for that repository,
+	// or by your GitHub account.
 	Mine bool
 	// CommitURL is the commit's page on GitHub, empty when it is not pushed or not on GitHub.
 	CommitURL string
