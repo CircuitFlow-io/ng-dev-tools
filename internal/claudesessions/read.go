@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -21,6 +22,11 @@ const (
 	// maxRecordBytes skips transcript lines bigger than any prompt or reply, such as a tool's
 	// output with screenshots, instead of holding them whole.
 	maxRecordBytes = 16 << 20
+	// readBufferBytes reads a typical line in one go rather than in 4 KB system calls.
+	readBufferBytes = 1 << 20
+	// maxPreviewBytes keeps the first and last prompts to more than any screen shows: a pasted
+	// log can be megabytes, and the search reads the full text from Turns.
+	maxPreviewBytes = 2 << 10
 )
 
 // record is the part of a transcript line that describes the session. Lines of other types, and
@@ -83,7 +89,7 @@ func Read(path string) (Session, error) {
 		File: path,
 		Size: info.Size(),
 	}}
-	r := bufio.NewReader(f)
+	r := bufio.NewReaderSize(f, readBufferBytes)
 	var line []byte
 	for {
 		var tooLong bool
@@ -160,9 +166,9 @@ func (b *builder) addPrompt(rec record) {
 	b.noteContext(rec)
 	s := &b.session
 	if s.Prompts == 0 {
-		s.FirstPrompt = text
+		s.FirstPrompt = preview(text)
 	}
-	s.LastPrompt = text
+	s.LastPrompt = preview(text)
 	s.Prompts++
 	s.Turns = append(s.Turns, Turn{Yours: true, Text: text})
 }
@@ -275,6 +281,18 @@ func textOf(content json.RawMessage) string {
 		}
 	}
 	return strings.Join(parts, " ")
+}
+
+// preview is the start of text, at most maxPreviewBytes, cut at a character.
+func preview(text string) string {
+	if len(text) <= maxPreviewBytes {
+		return text
+	}
+	cut := maxPreviewBytes
+	for cut > 0 && !utf8.RuneStart(text[cut]) {
+		cut--
+	}
+	return text[:cut]
 }
 
 func oneLine(text string) string {
