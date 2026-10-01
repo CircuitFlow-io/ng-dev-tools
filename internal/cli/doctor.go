@@ -12,7 +12,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/doctor"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/doctor/tui"
@@ -36,12 +35,13 @@ and print the command that fixes each problem. Doctor only reads; it never chang
 
 Groups: ` + strings.Join(doctor.GroupKeys(), ", ") + `
 
-Exits with status 1 when any check fails, so it can be used in scripts.`,
-		Example:   "  ngt doctor\n  ngt doctor android go\n  ngt doctor --problems\n  ngt doctor --offline",
+Exits with status 1 when any check fails, so it can be used in scripts. --json prints the
+results as JSON, with the same exit status.`,
+		Example:   "  ngt doctor\n  ngt doctor android go\n  ngt doctor --problems\n  ngt doctor --offline\n  ngt doctor --problems --json",
 		ValidArgs: doctor.GroupKeys(),
 		Args:      validGroups,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := runDoctor(cmd.Context(), cmd.OutOrStdout(), args, flags)
+			err := runDoctor(cmd.Context(), cmd.OutOrStdout(), resolveOutput(cmd), args, flags)
 			if errors.Is(err, errChecksFailed) {
 				// The report already explains what failed; only the exit status is left to set.
 				cmd.SilenceErrors = true
@@ -73,7 +73,7 @@ func parseGroups(args []string) ([]doctor.Group, error) {
 	return groups, nil
 }
 
-func runDoctor(ctx context.Context, out io.Writer, args []string, flags doctorFlags) error {
+func runDoctor(ctx context.Context, out io.Writer, mode outputMode, args []string, flags doctorFlags) error {
 	groups, err := parseGroups(args)
 	if err != nil {
 		return err
@@ -88,8 +88,16 @@ func runDoctor(ctx context.Context, out io.Writer, args []string, flags doctorFl
 		Offline: flags.offline,
 	}
 
+	if mode == outputJSON {
+		outcomes := d.Run(ctx, nil)
+		if err := writeJSON(out, toDoctorJSON(outcomes, flags.problems)); err != nil {
+			return err
+		}
+		return failure(outcomes)
+	}
+
 	start := time.Now()
-	outcomes, cancelled, err := examine(ctx, d)
+	outcomes, cancelled, err := examine(ctx, d, mode)
 	if err != nil {
 		return err
 	}
@@ -103,8 +111,8 @@ func runDoctor(ctx context.Context, out io.Writer, args []string, flags doctorFl
 }
 
 // examine runs the checks behind a progress screen when stdout is a terminal.
-func examine(ctx context.Context, d doctor.Doctor) (outcomes []doctor.Outcome, cancelled bool, err error) {
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+func examine(ctx context.Context, d doctor.Doctor, mode outputMode) (outcomes []doctor.Outcome, cancelled bool, err error) {
+	if mode != outputTUI {
 		return d.Run(ctx, nil), false, nil
 	}
 	final, err := tea.NewProgram(tui.New(ctx, d)).Run()

@@ -15,7 +15,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects"
@@ -29,6 +28,7 @@ const rootPackageLabel = "."
 var (
 	errNotInProject = errors.New("not inside an npm or pnpm project")
 	errNoRunsYet    = errors.New("no script has been run with ngt yet")
+	errJSONRunsNone = errors.New("--json only lists scripts; run without it to use --last")
 )
 
 type runFlags struct {
@@ -62,10 +62,11 @@ With arguments, a script named exactly by them runs straight away: "ngt run test
 current package's test, "ngt run web dev" the dev script of apps/web. Otherwise the arguments
 start the search.
 
-When output is not a terminal, the scripts are printed instead and nothing runs.`,
-		Example: "  ngt run\n  ngt run web dev\n  ngt run --last\n  ngt run | grep test",
+When output is not a terminal, or with --json, the scripts are printed instead and nothing runs.`,
+		Example: "  ngt run\n  ngt run web dev\n  ngt run --last\n  ngt run | grep test\n  ngt run --json",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRun(cmd.Context(), cmd.OutOrStdout(), args, flags)
+			mode := resolveOutput(cmd)
+			return runRun(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, args, flags)
 		},
 	}
 	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
@@ -73,7 +74,10 @@ When output is not a terminal, the scripts are printed instead and nothing runs.
 	return cmd
 }
 
-func runRun(ctx context.Context, out io.Writer, words []string, flags runFlags) error {
+func runRun(ctx context.Context, out, notices io.Writer, mode outputMode, words []string, flags runFlags) error {
+	if mode == outputJSON && flags.last {
+		return errJSONRunsNone
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -85,7 +89,7 @@ func runRun(ctx context.Context, out io.Writer, words []string, flags runFlags) 
 	env := runEnv{out: out, home: home, nvmDir: scripts.NVMDir(home, os.Getenv), store: scripts.DefaultHistoryStore(home, os.Getenv)}
 	env.history, err = env.store.Load()
 	if err != nil {
-		lipgloss.Fprintln(out, ui.Warning.Render("Ignoring unreadable "+ui.TildePath(env.store.Path, home)+": "+err.Error()))
+		lipgloss.Fprintln(notices, ui.Warning.Render("Ignoring unreadable "+ui.TildePath(env.store.Path, home)+": "+err.Error()))
 	}
 
 	ws, err := workspaceAt(cwd, home)
@@ -95,11 +99,15 @@ func runRun(ctx context.Context, out io.Writer, words []string, flags runFlags) 
 	if flags.last {
 		return env.runLast(ws)
 	}
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	if mode != outputTUI {
 		if ws == nil {
 			return errNotInProject
 		}
-		return printScripts(out, *ws, words, env.history)
+		targets := listedScripts(*ws, words, env.history)
+		if mode == outputJSON {
+			return writeJSON(out, toScriptsJSON(*ws, targets))
+		}
+		return printScripts(out, targets)
 	}
 	if ws != nil {
 		if t, ok := scripts.Exact(ws.Targets(), currentPackage(*ws, cwd), words); ok {
@@ -220,12 +228,17 @@ func (e runEnv) runScript(ws scripts.Workspace, t scripts.Target) error {
 	return scripts.Exec(inv)
 }
 
-// printScripts lists the scripts as plain text, for when output is not a terminal.
-func printScripts(out io.Writer, ws scripts.Workspace, words []string, history scripts.History) error {
+// listedScripts is every script of ws, or the ones words search for.
+func listedScripts(ws scripts.Workspace, words []string, history scripts.History) []scripts.Target {
 	targets := ws.Targets()
-	if len(words) > 0 {
-		targets = scripts.Search(targets, history.Recent(ws.Root), strings.Join(words, " "))
+	if len(words) == 0 {
+		return targets
 	}
+	return scripts.Search(targets, history.Recent(ws.Root), strings.Join(words, " "))
+}
+
+// printScripts lists the scripts as plain text, for when output is not a terminal.
+func printScripts(out io.Writer, targets []scripts.Target) error {
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "PACKAGE\tSCRIPT\tCOMMAND")
 	for _, t := range targets {

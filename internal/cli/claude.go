@@ -16,7 +16,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/claudesessions"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/claudesessions/tui"
@@ -53,15 +52,15 @@ details box shows where the search matched.
 Press enter to resume the session with claude --resume, in the folder it belongs to.
 
 Sessions are read from ~/.claude/projects, or $CLAUDE_CONFIG_DIR/projects. When output is not a
-terminal, the sessions are printed instead.`,
-		Example: "  ngt claude sessions\n  ngt claude sessions expo upgrade\n  ngt claude sessions | grep memorit",
+terminal, the sessions are printed instead; --json prints them as JSON, tokens included.`,
+		Example: "  ngt claude sessions\n  ngt claude sessions expo upgrade\n  ngt claude sessions | grep memorit\n  ngt claude sessions expo --json",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runClaudeSessions(cmd.Context(), cmd.OutOrStdout(), strings.Join(args, " "))
+			return runClaudeSessions(cmd.Context(), cmd.OutOrStdout(), resolveOutput(cmd), strings.Join(args, " "))
 		},
 	}
 }
 
-func runClaudeSessions(ctx context.Context, out io.Writer, query string) error {
+func runClaudeSessions(ctx context.Context, out io.Writer, mode outputMode, query string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -74,8 +73,15 @@ func runClaudeSessions(ctx context.Context, out io.Writer, query string) error {
 	live := func(ctx context.Context) map[string]claudesessions.Live {
 		return claudesessions.ReadLive(ctx, liveDir, claudesessions.PSStartTimes)
 	}
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	switch mode {
+	case outputText:
 		return printClaudeSessions(ctx, out, find, live, query, home)
+	case outputJSON:
+		results, errs, err := searchSessions(ctx, find, query)
+		if err != nil {
+			return err
+		}
+		return writeJSON(out, toSessionsJSON(results, live(ctx), errs))
 	}
 
 	lookUpPRs := func(ctx context.Context, urls []string) (map[string]pulls.Summary, error) {
@@ -117,11 +123,10 @@ func printClaudeSessions(
 	live func(context.Context) map[string]claudesessions.Live,
 	query, home string,
 ) error {
-	sessions, errs, err := find(ctx)
+	results, errs, err := searchSessions(ctx, find, query)
 	if err != nil {
 		return err
 	}
-	results := claudesessions.NewIndex(sessions).Search(query)
 	if err := writeClaudeSessions(out, results, live(ctx), time.Now(), home); err != nil {
 		return err
 	}
@@ -129,6 +134,18 @@ func printClaudeSessions(
 		fmt.Fprintf(out, "%s: could not read: %v\n", ui.TildePath(path, home), errs[path])
 	}
 	return nil
+}
+
+func searchSessions(
+	ctx context.Context,
+	find func(context.Context) ([]claudesessions.Session, map[string]error, error),
+	query string,
+) ([]claudesessions.Result, map[string]error, error) {
+	sessions, errs, err := find(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	return claudesessions.NewIndex(sessions).Search(query), errs, nil
 }
 
 func writeClaudeSessions(out io.Writer, results []claudesessions.Result, live map[string]claudesessions.Live, now time.Time, home string) error {

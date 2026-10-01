@@ -84,6 +84,12 @@ func stateCell(p pulls.PR) ui.Cell {
 	return ui.Cell{ui.NewSpan(waitingFor(p), ui.Muted)}
 }
 
+// StateText says what the pull request is waiting for, as the list shows it: "conflicts",
+// "checks failing", "ready to merge", "waiting on kim" and so on.
+func StateText(p pulls.PR) string {
+	return stateCell(p).Text()
+}
+
 func waitingFor(p pulls.PR) string {
 	if len(p.Requested) > 0 {
 		return "waiting on " + strings.Join(p.Requested, ", ")

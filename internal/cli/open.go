@@ -14,7 +14,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/ide"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
@@ -44,18 +43,20 @@ you picked most recently.
 A folder that only groups other folders is replaced by the projects inside it. Xcode opens the
 project's workspace (or its ios/ one), and Android Studio a React Native app's android/ folder.
 
-When output is not a terminal, the projects are printed instead and nothing is opened.`,
-		Example: "  ngt open\n  ngt open museum\n  ngt open --root ~/work\n  ngt open | grep weather",
+When output is not a terminal, or with --json, the projects are printed instead and nothing is
+opened.`,
+		Example: "  ngt open\n  ngt open museum\n  ngt open --root ~/work\n  ngt open | grep weather\n  ngt open museum --json",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOpen(cmd.Context(), cmd.OutOrStdout(), strings.Join(args, ""), flags)
+			mode := resolveOutput(cmd)
+			return runOpen(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, strings.Join(args, ""), flags)
 		},
 	}
 	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
 	return cmd
 }
 
-func runOpen(ctx context.Context, out io.Writer, query string, flags openFlags) error {
+func runOpen(ctx context.Context, out, notices io.Writer, mode outputMode, query string, flags openFlags) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -67,11 +68,18 @@ func runOpen(ctx context.Context, out io.Writer, query string, flags openFlags) 
 	store := projects.DefaultStore(home, os.Getenv)
 	state, err := store.Load()
 	if err != nil {
-		lipgloss.Fprintln(out, ui.Warning.Render("Ignoring unreadable "+ui.TildePath(store.Path, home)+": "+err.Error()))
+		lipgloss.Fprintln(notices, ui.Warning.Render("Ignoring unreadable "+ui.TildePath(store.Path, home)+": "+err.Error()))
 	}
 
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	switch mode {
+	case outputText:
 		return printProjects(ctx, out, root, home, query, state)
+	case outputJSON:
+		found, err := findProjects(ctx, root, query, state)
+		if err != nil {
+			return err
+		}
+		return writeJSON(out, toProjectsJSON(found))
 	}
 
 	ides := ide.Detect(ide.SearchDirs(home))
@@ -115,15 +123,23 @@ func rememberIDE(store projects.Store, state *projects.State, path string, edito
 
 // printProjects lists the projects as plain text, for when output is not a terminal.
 func printProjects(ctx context.Context, out io.Writer, root, home, query string, state projects.State) error {
-	found, err := projects.Scan(ctx, root, state.Opened)
+	found, err := findProjects(ctx, root, query, state)
 	if err != nil {
 		return err
 	}
 	now := time.Now()
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "PROJECT\tBRANCH\tLAST ACTIVITY\tPATH")
-	for _, p := range projects.Filter(found, query) {
+	for _, p := range found {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", p.Name, p.Branch, p.ActivityVerb()+" "+ui.Ago(now, p.LastActivity()), ui.TildePath(p.Path, home))
 	}
 	return w.Flush()
+}
+
+func findProjects(ctx context.Context, root, query string, state projects.State) ([]projects.Project, error) {
+	found, err := projects.Scan(ctx, root, state.Opened)
+	if err != nil {
+		return nil, err
+	}
+	return projects.Filter(found, query), nil
 }

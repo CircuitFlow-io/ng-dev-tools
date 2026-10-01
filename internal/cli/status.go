@@ -15,7 +15,6 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/term"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/gitstatus"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/gitstatus/tui"
@@ -46,11 +45,12 @@ It only reads, and never contacts the remotes unless asked: --fetch, or f and F 
 git fetch, which updates the remote-tracking branches and nothing else. Press enter to open a
 repository in its IDE.
 
-When output is not a terminal, the table is printed instead.`,
-		Example: "  ngt status\n  ngt status --fetch\n  ngt status | grep -v clean",
+When output is not a terminal, the table is printed instead; --json prints everything as JSON.`,
+		Example: "  ngt status\n  ngt status --fetch\n  ngt status | grep -v clean\n  ngt status --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runStatus(cmd.Context(), cmd.OutOrStdout(), flags)
+			mode := resolveOutput(cmd)
+			return runStatus(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, flags)
 		},
 	}
 	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
@@ -58,7 +58,7 @@ When output is not a terminal, the table is printed instead.`,
 	return cmd
 }
 
-func runStatus(ctx context.Context, out io.Writer, flags statusFlags) error {
+func runStatus(ctx context.Context, out, notices io.Writer, mode outputMode, flags statusFlags) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -68,14 +68,21 @@ func runStatus(ctx context.Context, out io.Writer, flags statusFlags) error {
 		root = filepath.Join(home, defaultProjectsDir)
 	}
 	runner := macos.ExecRunner{}
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	switch mode {
+	case outputText:
 		return printStatus(ctx, out, runner, root, flags.fetch)
+	case outputJSON:
+		repos, fetchErrs, err := loadStatus(ctx, runner, root, flags.fetch)
+		if err != nil {
+			return err
+		}
+		return writeJSON(out, toStatusJSON(repos, fetchErrs))
 	}
 
 	store := projects.DefaultStore(home, os.Getenv)
 	state, err := store.Load()
 	if err != nil {
-		lipgloss.Fprintln(out, ui.Warning.Render("Ignoring unreadable "+ui.TildePath(store.Path, home)+": "+err.Error()))
+		lipgloss.Fprintln(notices, ui.Warning.Render("Ignoring unreadable "+ui.TildePath(store.Path, home)+": "+err.Error()))
 	}
 	cfg := tui.Config{
 		Root:         root,
@@ -112,18 +119,10 @@ func ideOpener(ctx context.Context, runner macos.Runner, store projects.Store, s
 
 // printStatus prints the table as plain text, for when output is not a terminal.
 func printStatus(ctx context.Context, out io.Writer, runner macos.Runner, root string, fetch bool) error {
-	repos, err := gitstatus.LoadAll(ctx, runner, root)
+	repos, fetchErrs, err := loadStatus(ctx, runner, root, fetch)
 	if err != nil {
 		return err
 	}
-	fetchErrs := map[string]error{}
-	if fetch {
-		fetchErrs = fetchAll(ctx, repos)
-		if repos, err = gitstatus.LoadAll(ctx, runner, root); err != nil {
-			return err
-		}
-	}
-
 	now := time.Now()
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "PROJECT\tBRANCH\tCHANGES\tSYNC\tLAST COMMIT\tNOTES")
@@ -139,6 +138,18 @@ func printStatus(ctx context.Context, out io.Writer, runner macos.Runner, root s
 		}
 	}
 	return nil
+}
+
+// loadStatus reads every repository under root, after fetching them first when fetch is set, and
+// returns why each fetch failed, by path.
+func loadStatus(ctx context.Context, runner macos.Runner, root string, fetch bool) ([]gitstatus.Repo, map[string]error, error) {
+	repos, err := gitstatus.LoadAll(ctx, runner, root)
+	if err != nil || !fetch {
+		return repos, map[string]error{}, err
+	}
+	fetchErrs := fetchAll(ctx, repos)
+	repos, err = gitstatus.LoadAll(ctx, runner, root)
+	return repos, fetchErrs, err
 }
 
 // fetchAll fetches the repositories that have a remote, a few at a time, and returns why each
@@ -163,11 +174,4 @@ func fetchAll(ctx context.Context, repos []gitstatus.Repo) map[string]error {
 	}
 	_ = g.Wait()
 	return failed
-}
-
-func errText(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
 }

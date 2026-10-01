@@ -11,7 +11,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/standup"
@@ -41,11 +40,11 @@ Press enter or o to open the commit, pull request or branch under the cursor on 
 to start a day earlier or later. Commits are yours when their author is the user.email of their
 repository. GitHub is read through the gh CLI; without it the report only has local work.
 
-When output is not a terminal, the report is printed instead.`,
-		Example: "  ngt standup\n  ngt standup --since monday\n  ngt standup --since 3d | pbcopy",
+When output is not a terminal, the report is printed instead; --json prints it as JSON.`,
+		Example: "  ngt standup\n  ngt standup --since monday\n  ngt standup --since 3d | pbcopy\n  ngt standup --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runStandup(cmd.Context(), cmd.OutOrStdout(), flags)
+			return runStandup(cmd.Context(), cmd.OutOrStdout(), resolveOutput(cmd), flags)
 		},
 	}
 	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default ~/projects)")
@@ -53,7 +52,7 @@ When output is not a terminal, the report is printed instead.`,
 	return cmd
 }
 
-func runStandup(ctx context.Context, out io.Writer, flags standupFlags) error {
+func runStandup(ctx context.Context, out io.Writer, mode outputMode, flags standupFlags) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -72,8 +71,15 @@ func runStandup(ctx context.Context, out io.Writer, flags standupFlags) error {
 	load := func(ctx context.Context, since time.Time) (standup.Report, error) {
 		return standup.Load(ctx, runner, root, since, time.Now())
 	}
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	switch mode {
+	case outputText:
 		return printStandup(ctx, out, load, since)
+	case outputJSON:
+		report, err := load(ctx, since)
+		if err != nil {
+			return err
+		}
+		return writeJSON(out, toStandupJSON(report))
 	}
 
 	cfg := tui.Config{

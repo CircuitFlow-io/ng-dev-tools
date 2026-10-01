@@ -13,7 +13,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/ide"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/macos"
@@ -43,18 +42,19 @@ into ~/projects with gh repo clone first when there is none), i to check
 out its branch the same way and open the clone in its IDE, and l to read the log of its failed GitHub Actions checks.
 
 It reads GitHub through the gh CLI, so it uses gh's login. When output is not a terminal, the pull
-requests are printed instead.`,
-		Example: "  ngt prs\n  ngt prs | grep -i conflicts",
+requests are printed instead; --json prints everything, checks and reviews included, as JSON.`,
+		Example: "  ngt prs\n  ngt prs | grep -i conflicts\n  ngt prs --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runPRs(cmd.Context(), cmd.OutOrStdout(), flags)
+			mode := resolveOutput(cmd)
+			return runPRs(cmd.Context(), cmd.OutOrStdout(), noticeWriter(cmd, mode), mode, flags)
 		},
 	}
 	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your local clones (default ~/projects)")
 	return cmd
 }
 
-func runPRs(ctx context.Context, out io.Writer, flags prsFlags) error {
+func runPRs(ctx context.Context, out, notices io.Writer, mode outputMode, flags prsFlags) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -64,14 +64,21 @@ func runPRs(ctx context.Context, out io.Writer, flags prsFlags) error {
 		root = filepath.Join(home, defaultProjectsDir)
 	}
 	runner := macos.ExecRunner{}
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	switch mode {
+	case outputText:
 		return printPRs(ctx, out, runner)
+	case outputJSON:
+		d, err := pulls.Load(ctx, runner)
+		if err != nil {
+			return err
+		}
+		return writeJSON(out, toPRsJSON(d))
 	}
 
 	store := projects.DefaultStore(home, os.Getenv)
 	state, err := store.Load()
 	if err != nil {
-		lipgloss.Fprintln(out, ui.Warning.Render("Ignoring unreadable "+ui.TildePath(store.Path, home)+": "+err.Error()))
+		lipgloss.Fprintln(notices, ui.Warning.Render("Ignoring unreadable "+ui.TildePath(store.Path, home)+": "+err.Error()))
 	}
 	cfg := tui.Config{
 		Root:   root,
