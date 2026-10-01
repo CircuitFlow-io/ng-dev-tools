@@ -156,7 +156,7 @@ The details box shows who added the line, when and in which commit, with the cod
 
 - `enter` opens the file at that line in your IDE, with the same box as `ngt open` (Cursor, VS Code, VSCodium, Windsurf, Zed, Sublime Text, Xcode and JetBrains IDEs jump to the line; others open the file).
 - `o` opens the commit that added the line on GitHub, once it is pushed.
-- `m` shows only the lines you wrote, by your git email in each repository.
+- `m` shows only the lines you wrote: lines not committed yet, and lines whose author has any `user.email` or `user.name` set for that repository (global ones included), or your GitHub account (profile name, or a `users.noreply.github.com` address), so squash merges made on GitHub count too. Any email one of your lines carries then makes other lines with that email yours.
 
 Keys: `↑/↓` move, `enter` open in IDE, `o` open commit, `m` mine only, `r` refresh, `q` quit.
 
