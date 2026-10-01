@@ -13,6 +13,7 @@ import (
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/claudesessions"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects/projectlist"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/pulls"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
@@ -49,6 +50,13 @@ type Config struct {
 	Find func(ctx context.Context) ([]claudesessions.Session, map[string]error, error)
 	// Live reads what Claude Code is doing with each open session, by session id. It is optional.
 	Live func(ctx context.Context) map[string]claudesessions.Live
+	// PRs looks up the sessions' pull requests by URL. It is optional.
+	PRs func(ctx context.Context, urls []string) (map[string]pulls.Summary, error)
+}
+
+type prsMsg struct {
+	found map[string]pulls.Summary
+	err   error
 }
 
 type foundMsg struct {
@@ -77,6 +85,7 @@ type Model struct {
 	sessions   map[string]claudesessions.Session
 	tails      map[string]*claudesessions.UsageTail
 	usage      map[string]claudesessions.Usage
+	prs        prLookup
 	folders    int
 	unreadable int
 	query      string
@@ -181,6 +190,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.showSessions(msg)
 	case liveMsg:
 		return m.showLive(msg)
+	case prsMsg:
+		m.prs = prLookup{found: msg.found, err: msg.err}
+		return m, nil
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			return m.quit()
@@ -220,7 +232,23 @@ func (m Model) showSessions(msg foundMsg) (tea.Model, tea.Cmd) {
 	m.index = claudesessions.NewIndex(msg.sessions)
 	m.search()
 	m.state = stateListing
-	return m, nil
+	return m, m.lookUpPRs(msg.sessions)
+}
+
+// lookUpPRs looks up every pull request the sessions opened, in the background.
+func (m *Model) lookUpPRs(sessions []claudesessions.Session) tea.Cmd {
+	var urls []string
+	for _, s := range sessions {
+		urls = append(urls, s.PRs...)
+	}
+	if m.cfg.PRs == nil || len(urls) == 0 {
+		return nil
+	}
+	m.prs.pending = true
+	return func() tea.Msg {
+		found, err := m.cfg.PRs(m.ctx, urls)
+		return prsMsg{found: found, err: err}
+	}
 }
 
 func (m Model) showLive(msg liveMsg) (tea.Model, tea.Cmd) {
@@ -310,6 +338,7 @@ func (m Model) listView() string {
 		result:  result,
 		live:    m.table.live[result.Session.ID],
 		usage:   m.currentUsage(result.Session),
+		prs:     m.prs,
 		missing: m.table.missing[result.Session.Dir],
 		now:     m.table.now,
 		home:    m.cfg.Home,

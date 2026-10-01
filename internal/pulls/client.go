@@ -22,10 +22,15 @@ func Load(ctx context.Context, runner macos.Runner) (Dashboard, error) {
 	}
 	out, err := runner.Run(ctx, "gh", "api", "graphql", "-f", "query="+dashboardQuery)
 	if err != nil {
-		if strings.Contains(err.Error(), ghLoginHint) {
-			return Dashboard{}, ErrNotLoggedIn
-		}
-		return Dashboard{}, err
+		return Dashboard{}, ghError(err)
 	}
 	return parseDashboard(out)
+}
+
+// ghError names the fix when gh failed because it is not logged in.
+func ghError(err error) error {
+	if strings.Contains(err.Error(), ghLoginHint) {
+		return ErrNotLoggedIn
+	}
+	return err
 }

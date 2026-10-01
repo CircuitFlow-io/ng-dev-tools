@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -10,6 +11,9 @@ import (
 // minItemsForMoreLine is how many items a cut-short section needs before one of them gives way to
 // an "… n more" line.
 const minItemsForMoreLine = 2
+
+// spreadGap is the least space Spread keeps between its two ends.
+const spreadGap = 2
 
 // Section is a titled list in a details box, such as a pull request's checks.
 type Section struct {
@@ -72,4 +76,15 @@ func SideBySide(left, right []string, leftWidth int, separator string) []string 
 		lines[i] = lipgloss.NewStyle().Width(leftWidth).Render(l) + Muted.Render(separator) + r
 	}
 	return lines
+}
+
+// Spread puts left at the start of a line and right at its end, cutting left short to keep right
+// whole when they do not both fit.
+func Spread(left, right string, width int) string {
+	rightWidth := lipgloss.Width(right)
+	if right == "" || rightWidth+spreadGap >= width {
+		return FitLine(strings.TrimSpace(left+"  "+right), width)
+	}
+	left = FitLine(left, width-rightWidth-spreadGap)
+	return left + strings.Repeat(" ", width-lipgloss.Width(left)-rightWidth) + right
 }

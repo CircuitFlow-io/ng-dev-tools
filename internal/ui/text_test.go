@@ -53,3 +53,21 @@ func TestTruncateIsQuickOnAPastedMegabyte(t *testing.T) {
 		t.Errorf("Truncate = %q, want %q", got, want)
 	}
 }
+
+func TestSpread(t *testing.T) {
+	tests := []struct {
+		left, right string
+		width       int
+		want        string
+	}{
+		{"title", "working", 20, "title        working"},
+		{"a long title here", "working", 20, "a long tit…  working"},
+		{"title", "", 20, "title"},
+		{"title", "far too wide to fit", 10, "title  fa…"},
+	}
+	for _, tt := range tests {
+		if got := Spread(tt.left, tt.right, tt.width); got != tt.want {
+			t.Errorf("Spread(%q, %q, %d) = %q, want %q", tt.left, tt.right, tt.width, got, tt.want)
+		}
+	}
+}
