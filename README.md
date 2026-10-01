@@ -150,7 +150,7 @@ ngt todo                # interactive list (alias: ngt todos)
 ngt todo --mine | cat   # plain list of the lines you wrote
 ```
 
-Only markers that start a comment count, in the comment syntax of the file's language, so `id: 'TODO'`, a `// TODO` inside a string or a comment that merely mentions TODO are left out. Tool directives may come first, as in `// @ts-expect-error FIXME`. In Markdown the marker must start the line (`> **TODO**: ...`). It searches tracked files and untracked ones git does not ignore, and skips dependencies, build output and lockfiles.
+Only markers that start a comment count, in the comment syntax of the file's language, so `id: 'TODO'`, a `// TODO` inside a string or a comment that merely mentions TODO are left out. Tool directives may come first, as in `// @ts-expect-error FIXME`. In Markdown the marker must start the line (`> **TODO**: ...`). It searches tracked files and untracked ones git does not ignore, and skips dependencies, build output, lockfiles, binary files, files over 1 MB and lines over 400 characters. At most 6 git processes run at once, however many repositories there are.
 
 The details box shows who added the line, when and in which commit, with the code around it.
 
@@ -194,7 +194,7 @@ Typing searches your prompts, Claude's replies and each session's title, folder,
 
 `enter` replaces ngt with `claude --resume <id>` in the folder the session belongs to, so it continues where it was saved. A folder that was moved or deleted is struck through and cannot be resumed. Slash commands, shell commands, background task notices and subagents' transcripts do not count as prompts; a session without any prompt is left out.
 
-Sessions are read from `~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects`. It only reads them.
+Sessions are read from `~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects`. It only reads them, 4 at a time, and skips transcript lines over 16 MB, which hold tool output such as screenshots.
 
 Keys: type to search, `↑/↓` move, `enter` resume, `esc` clear the search or quit.
 
@@ -228,7 +228,7 @@ internal/pulls/         prs domain: reading pull requests through gh, local clon
 internal/pulls/tui/     grouped list, details box and log view for `prs`
 internal/envfiles/      env domain: env file names and keys, examples vs local files, git exposure, keys read in code
 internal/envfiles/tui/  table, details box and add-missing prompt for `env`
-internal/todos/         todo domain: finding marker comments with git grep, dating them with git blame
+internal/todos/         todo domain: finding marker comments in the files git lists, dating them with git blame
 internal/todos/tui/     table and details box with the surrounding code for `todo`
 internal/standup/       standup domain: your commits by branch, your pull request activity through gh, the last day you worked
 internal/standup/tui/   grouped report for `standup`, also printed as plain text

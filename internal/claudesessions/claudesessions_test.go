@@ -262,3 +262,19 @@ func TestWithPWDReplacesTheOldValue(t *testing.T) {
 		t.Errorf("withPWD = %v, env = %v", got, env)
 	}
 }
+
+func TestReadSkipsLinesTooBigToHold(t *testing.T) {
+	huge := `{"type":"user","toolUseResult":{"stdout":"` + strings.Repeat("x", maxRecordBytes) + `"}}`
+	content := strings.Join([]string{
+		`{"type":"user","cwd":"/p/api","timestamp":"2026-09-01T10:00:00Z","message":{"role":"user","content":"before"}}`,
+		huge,
+		`{"type":"user","cwd":"/p/api","timestamp":"2026-09-01T10:00:02Z","message":{"role":"user","content":"after"}}`,
+	}, "\n")
+	s, err := Read(writeTranscript(t, t.TempDir(), StorageName("/p/api"), "big", content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Prompts != 2 || s.FirstPrompt != "before" || s.LastPrompt != "after" {
+		t.Errorf("prompts %d, first %q, last %q: want the lines around the huge one", s.Prompts, s.FirstPrompt, s.LastPrompt)
+	}
+}

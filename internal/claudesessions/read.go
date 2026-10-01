@@ -18,6 +18,9 @@ const (
 	humanOrigin   = "human"
 	// detachedHead is what Claude Code records outside a branch, including outside a repository.
 	detachedHead = "HEAD"
+	// maxRecordBytes skips transcript lines bigger than any prompt or reply, such as a tool's
+	// output with screenshots, instead of holding them whole.
+	maxRecordBytes = 16 << 20
 )
 
 // record is the part of a transcript line that describes the session. Lines of other types, and
@@ -62,8 +65,8 @@ func (p *presence) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Read reads one transcript. Lines that are not valid JSON, such as one still being written, are
-// skipped.
+// Read reads one transcript. Lines that are not valid JSON, such as one still being written, and
+// lines over maxRecordBytes are skipped.
 func Read(path string) (Session, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -81,10 +84,12 @@ func Read(path string) (Session, error) {
 		Size: info.Size(),
 	}}
 	r := bufio.NewReader(f)
+	var line []byte
 	for {
-		line, err := r.ReadBytes('\n')
+		var tooLong bool
+		line, tooLong, err = readLine(r, line[:0])
 		var rec record
-		if json.Unmarshal(line, &rec) == nil {
+		if !tooLong && json.Unmarshal(line, &rec) == nil {
 			b.add(rec)
 		}
 		if errors.Is(err, io.EOF) {
@@ -95,6 +100,20 @@ func Read(path string) (Session, error) {
 		}
 	}
 	return b.finish(filepath.Base(filepath.Dir(path)), info.ModTime()), nil
+}
+
+// readLine appends the next line to buf, unless it is over maxRecordBytes, which it reads past.
+func readLine(r *bufio.Reader, buf []byte) (line []byte, tooLong bool, err error) {
+	for {
+		chunk, err := r.ReadSlice('\n')
+		tooLong = tooLong || len(buf)+len(chunk) > maxRecordBytes
+		if !tooLong {
+			buf = append(buf, chunk...)
+		}
+		if !errors.Is(err, bufio.ErrBufferFull) {
+			return buf, tooLong, err
+		}
+	}
 }
 
 // builder gathers a session from its records, in file order.
