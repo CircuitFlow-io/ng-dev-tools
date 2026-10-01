@@ -13,7 +13,7 @@ import (
 
 const (
 	// detailLines is the fixed height of the details box's content, so the table does not jump.
-	detailLines      = 6
+	detailLines      = 7
 	detailFrameWidth = 4
 	joiner           = " · "
 	untitled         = "Untitled"
@@ -30,13 +30,15 @@ var (
 type detailsInput struct {
 	result  claudesessions.Result
 	live    claudesessions.Live
+	usage   claudesessions.Usage
 	missing bool
 	now     time.Time
 	home    string
 }
 
-// details describes the session under the cursor: its title and what Claude is doing with it, folder, when and how long it ran,
-// its models and pull requests, and its first and last prompts, or where the search matched.
+// details describes the session under the cursor: its title and what Claude is doing with it,
+// folder, when and how long it ran, its models, tokens and pull requests, and its first and last
+// prompts, or where the search matched.
 func details(in detailsInput, ok bool, width int) string {
 	inner := width - detailFrameWidth
 	if !ok {
@@ -47,6 +49,9 @@ func details(in detailsInput, ok bool, width int) string {
 		titleLine(s, in.live, in.now),
 		folderLine(s, in.missing, in.home),
 		factsLine(s, in.now),
+	}
+	if !in.usage.IsZero() {
+		lines = append(lines, labelled("Tokens", tokens(in.usage)))
 	}
 	if len(s.PRs) > 0 {
 		lines = append(lines, labelled("PRs", accent.Render(strings.Join(s.PRs, "  "))))
@@ -101,6 +106,17 @@ func factsLine(s claudesessions.Session, now time.Time) string {
 		facts = append(facts, strings.Join(models, ", "))
 	}
 	return ui.Muted.Render(strings.Join(facts, joiner))
+}
+
+// tokens leads with the context size, the one that says how close the session is to compacting.
+func tokens(u claudesessions.Usage) string {
+	return accent.Render(ui.Compact(u.Context)+" context") + ui.Muted.Render(strings.Join([]string{
+		"",
+		ui.Compact(u.Input) + " in",
+		ui.Compact(u.Output) + " out",
+		ui.Compact(u.CacheRead) + " cache read",
+		ui.Compact(u.CacheWrite) + " cache written",
+	}, joiner))
 }
 
 func labelled(label, text string) string {
