@@ -182,13 +182,15 @@ Keys: `↑/↓` move, `enter`/`o` open the pull request, commit or branch on Git
 
 ### `ngt claude sessions`
 
-Every saved Claude Code session, from every folder, in one list, most recently active first: the first prompt, when it was last active, the git branch, how many prompts it has and the model that wrote most of it. `claude --resume` only lists the current folder's sessions; this lists them all and searches what was said in them.
+Every saved Claude Code session, from every folder, in one list, most recently active first: the first prompt, when it was last active, its status, the git branch, how many prompts it has and the model that wrote most of it. `claude --resume` only lists the current folder's sessions; this lists them all and searches what was said in them.
 
 ```sh
 ngt claude sessions                  # interactive list
 ngt claude sessions expo upgrade     # start with a search
 ngt claude sessions | grep memorit   # plain table, with session ids, when not a terminal
 ```
+
+The status shows what Claude is doing with a session that is open right now, in a terminal, the Claude app or an editor: `working` while it runs a turn, `waiting` when it needs you (such as a permission prompt) and `idle` once it has finished its turn. It is read from the status file each running Claude Code keeps in `~/.claude/sessions` and refreshes every 2 seconds; a closed session has none.
 
 Typing searches your prompts, Claude's replies and each session's title, folder, branches and models; every word must appear, in either case. The details box shows the session's title, folder, every branch it was on, when it started, its size, the replies per model, the pull requests it opened, its first and last prompts, and, while searching, the line that matched.
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"charm.land/bubbles/v2/spinner"
@@ -24,6 +25,8 @@ const (
 	help        = "type to search · ↑/↓ move · enter resume · esc clear or quit"
 	placeholder = "type to search prompts, replies, titles, folders and branches"
 	flashGap    = "   "
+	// liveRefresh is how often the status of open sessions is read again.
+	liveRefresh = 2 * time.Second
 )
 
 type state int
@@ -44,6 +47,8 @@ type Config struct {
 	Query string
 	// Find reads the sessions, with the transcripts that could not be read by path.
 	Find func(ctx context.Context) ([]claudesessions.Session, map[string]error, error)
+	// Live reads what Claude Code is doing with each open session, by session id. It is optional.
+	Live func(ctx context.Context) map[string]claudesessions.Live
 }
 
 type foundMsg struct {
@@ -51,6 +56,8 @@ type foundMsg struct {
 	errs     map[string]error
 	err      error
 }
+
+type liveMsg map[string]claudesessions.Live
 
 // Model is the Bubble Tea model driving the sessions screen.
 type Model struct {
@@ -103,7 +110,15 @@ func (m Model) Err() error {
 
 // Init starts reading the sessions.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, m.find(), tea.RequestBackgroundColor)
+	return tea.Batch(m.spinner.Tick, m.find(), m.watchLive(0), tea.RequestBackgroundColor)
+}
+
+// watchLive reads the status of open sessions after delay.
+func (m Model) watchLive(delay time.Duration) tea.Cmd {
+	if m.cfg.Live == nil {
+		return nil
+	}
+	return tea.Tick(delay, func(time.Time) tea.Msg { return liveMsg(m.cfg.Live(m.ctx)) })
 }
 
 func (m Model) find() tea.Cmd {
@@ -131,6 +146,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case foundMsg:
 		return m.showSessions(msg)
+	case liveMsg:
+		return m.showLive(msg)
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			return m.quit()
@@ -169,6 +186,15 @@ func (m Model) showSessions(msg foundMsg) (tea.Model, tea.Cmd) {
 	m.search()
 	m.state = stateListing
 	return m, nil
+}
+
+func (m Model) showLive(live liveMsg) (tea.Model, tea.Cmd) {
+	if m.state == stateDone {
+		return m, nil
+	}
+	m.table.live = live
+	m.table.now = time.Now()
+	return m, m.watchLive(liveRefresh)
 }
 
 func (m *Model) search() {
@@ -244,7 +270,13 @@ func (m Model) View() tea.View {
 func (m Model) listView() string {
 	width := m.width - 2*ui.HorizontalMargin
 	result, ok := m.table.current()
-	in := detailsInput{result: result, missing: m.table.missing[result.Session.Dir], now: m.table.now, home: m.cfg.Home}
+	in := detailsInput{
+		result:  result,
+		live:    m.table.live[result.Session.ID],
+		missing: m.table.missing[result.Session.Dir],
+		now:     m.table.now,
+		home:    m.cfg.Home,
+	}
 	lines := []string{
 		ui.FitLine(m.title(), width),
 		ui.FitLine(projectlist.FilterLine(m.query, placeholder), width),

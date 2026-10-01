@@ -18,18 +18,19 @@ func TestWriteClaudeSessionsPrintsOneRowPerSession(t *testing.T) {
 		}},
 		{Session: claudesessions.Session{ID: "def", Dir: "/tmp/x", Prompts: 1, LastActive: now.Add(-time.Hour), FirstPrompt: strings.Repeat("a", 100)}},
 	}
+	live := map[string]claudesessions.Live{"abc": {Activity: claudesessions.Working}}
 	var out bytes.Buffer
-	if err := writeClaudeSessions(&out, results, now, "/home"); err != nil {
+	if err := writeClaudeSessions(&out, results, live, now, "/home"); err != nil {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
 	if len(lines) != 3 || !strings.HasPrefix(lines[0], "ACTIVE") {
 		t.Fatalf("want a header and two rows:\n%s", out.String())
 	}
-	if want := "3 days ago  ~/projects/memorit  main    12       Opus 5.5  abc      upgrade expo"; lines[1] != want {
+	if want := "3 days ago  working  ~/projects/memorit  main    12       Opus 5.5  abc      upgrade expo"; lines[1] != want {
 		t.Errorf("row 1 = %q, want %q", lines[1], want)
 	}
-	if !strings.Contains(lines[2], "/tmp/x") || !strings.HasSuffix(lines[2], strings.Repeat("a", plainPromptWidth-1)+"…") {
+	if !strings.Contains(lines[2], "closed   /tmp/x") || !strings.HasSuffix(lines[2], strings.Repeat("a", plainPromptWidth-1)+"…") {
 		t.Errorf("row 2 = %q", lines[2])
 	}
 }
