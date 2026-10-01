@@ -3,6 +3,9 @@ package tui
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -256,9 +259,46 @@ func TestOpenInIDE(t *testing.T) {
 	if m.state != stateChoosingIDE || m.picker.Current() != zed {
 		t.Fatalf("state %v, preselected %v", m.state, m.picker.Current())
 	}
+	if !strings.Contains(view(m), "Open api on fast-login with") {
+		t.Errorf("the IDE box should name the branch:\n%s", view(m))
+	}
 	m, cmd := press(t, m, enter)
 	m = deliver(t, m, cmd)
-	if len(actions.ides) != 1 || actions.ides[0] != "/p/api in Zed" || !strings.Contains(view(m), "Opened api in Zed") {
+	if !slices.Equal(actions.checkouts, []string{"/p/api acme/api#2"}) || !slices.Equal(actions.ides, []string{"/p/api in Zed"}) {
+		t.Errorf("checkouts %q, ides %q: want the branch checked out, then the IDE opened", actions.checkouts, actions.ides)
+	}
+	if !strings.Contains(view(m), "Checked out fast-login in api and opened it in Zed") {
+		t.Errorf("missing confirmation:\n%s", view(m))
+	}
+}
+
+func TestOpenInIDEOnTheBranchAlreadySkipsTheCheckout(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "api")
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("ref: refs/heads/fast-login\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	actions := &fakeActions{}
+	m := loaded(t, Config{IDEs: []ide.IDE{cursor}}, actions)
+	m.clones = map[string]string{"acme/api": dir}
+	m, _ = press(t, m, down)
+	m, cmd := press(t, m, key("i"))
+	m = deliver(t, m, cmd)
+	if len(actions.checkouts) != 0 || len(actions.ides) != 1 || !strings.Contains(view(m), "Opened api in Cursor on fast-login") {
+		t.Errorf("checkouts %q, ides %q:\n%s", actions.checkouts, actions.ides, view(m))
+	}
+}
+
+func TestOpenInIDEOpensNothingWhenTheCheckoutIsRefused(t *testing.T) {
+	actions := &fakeActions{}
+	m := loaded(t, Config{IDEs: []ide.IDE{cursor}}, actions)
+	m.cfg.Checkout = func(context.Context, string, pulls.PR) error { return pulls.ErrUncommitted }
+	m, _ = press(t, m, down)
+	m, cmd := press(t, m, key("i"))
+	m = deliver(t, m, cmd)
+	if len(actions.ides) != 0 || !strings.Contains(view(m), "could not check out acme/api#2 in api: has uncommitted changes") {
 		t.Errorf("ides %q:\n%s", actions.ides, view(m))
 	}
 }

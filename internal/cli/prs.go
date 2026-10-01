@@ -38,8 +38,8 @@ on GitHub, with their CI, review and merge state. The details box shows each che
 reviewer's verdict and whether the branch conflicts with its base.
 
 Press enter to open a pull request in the browser, c to check out its branch in your local clone
-(found in ~/projects by its remote; refused while that clone has uncommitted changes), i to open
-the clone in its IDE, and l to read the log of its failed GitHub Actions checks.
+(found in ~/projects by its remote; refused while that clone has uncommitted changes), i to check
+out its branch the same way and open the clone in its IDE, and l to read the log of its failed GitHub Actions checks.
 
 It reads GitHub through the gh CLI, so it uses gh's login. When output is not a terminal, the pull
 requests are printed instead.`,

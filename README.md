@@ -119,7 +119,7 @@ It reads GitHub with one GraphQL request through the `gh` CLI, so it uses your `
 
 - `enter` opens the pull request in the browser.
 - `c` checks out its branch in your local clone, found in `~/projects` by its GitHub remote (`--root` for another folder). It runs `gh pr checkout`, which also fetches branches from forks, and refuses while the clone has uncommitted changes.
-- `i` opens the local clone in its IDE, with the same box as `ngt open`.
+- `i` checks out the pull request's branch, like `c`, then opens the local clone in its IDE, with the same box as `ngt open`. It skips the checkout when the clone is already on that branch, and opens nothing when the checkout is refused.
 - `l` shows the log of the failed GitHub Actions steps, scrolled to the end; `tab` moves to the next failed check and `o` opens the job page. GitHub keeps these logs for 90 days.
 
 Keys: `↑/↓` move, `enter` browser, `c` check out, `i` IDE, `l` failed log, `r` refresh, `q` quit.
