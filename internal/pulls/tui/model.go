@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"strings"
 
@@ -24,7 +25,9 @@ const (
 	// chromeLines is the space taken by everything around the list: the top margin, title, blank
 	// line, details box with its border, and help line with its margin.
 	chromeLines = 5 + detailLines + 2
-	listHelp    = "↑/↓ move · enter browser · c check out · i IDE · l log · r refresh · q quit"
+	listHelp    = "↑/↓ move · enter browser · %s · i IDE · l log · r refresh · q quit"
+	checkoutKey = "c check out"
+	cloneKey    = "c clone"
 	flashGap    = "   "
 )
 
@@ -48,6 +51,8 @@ type Config struct {
 	Load func(ctx context.Context) (pulls.Dashboard, error)
 	// Clones maps "owner/name" to the local project cloned from it.
 	Clones func() map[string]string
+	// Clone clones "owner/name" into the projects folder and returns where.
+	Clone func(ctx context.Context, repo string) (string, error)
 	// Checkout switches a local clone to a pull request's branch.
 	Checkout func(ctx context.Context, dir string, p pulls.PR) error
 	// FailedLog reads the log of a failed check.
@@ -75,6 +80,13 @@ type actionMsg struct {
 	err  error
 	// opened is set when a project was opened in an IDE, to remember the choice.
 	opened *openedIn
+	// cloned is set when a repository was cloned, even if what followed failed.
+	cloned *clonedRepo
+}
+
+type clonedRepo struct {
+	repo string
+	dir  string
 }
 
 type openedIn struct {
@@ -300,20 +312,38 @@ func (m Model) clone(p pulls.PR) (string, bool) {
 }
 
 func (m Model) notCloned(p pulls.PR) (tea.Model, tea.Cmd) {
-	m.flash = ui.Warning.Render(p.Repo + " is not cloned in " + ui.TildePath(m.cfg.Root, m.cfg.Home))
+	m.flash = ui.Warning.Render(p.Repo + " is not cloned in " + ui.TildePath(m.cfg.Root, m.cfg.Home) + ": press c to clone it")
 	return m, nil
 }
 
 func (m Model) checkout(p pulls.PR) (tea.Model, tea.Cmd) {
 	dir, ok := m.clone(p)
 	if !ok {
-		return m.notCloned(p)
+		return m.cloneAndCheckout(p)
 	}
 	m.working = true
 	m.flash = ui.Muted.Render("Checking out " + p.HeadRef + " in " + filepath.Base(dir) + "…")
 	return m, tea.Batch(m.startTicking(), func() tea.Msg {
 		done, err := m.checkoutIn(dir, p)
 		return actionMsg{done: done, err: err}
+	})
+}
+
+// cloneAndCheckout clones p's repository into the projects folder and checks out p's branch there.
+func (m Model) cloneAndCheckout(p pulls.PR) (tea.Model, tea.Cmd) {
+	m.working = true
+	target := ui.TildePath(pulls.CloneDir(m.cfg.Root, p.Repo), m.cfg.Home)
+	m.flash = ui.Muted.Render("Cloning " + p.Repo + " into " + target + "…")
+	return m, tea.Batch(m.startTicking(), func() tea.Msg {
+		dir, err := m.cfg.Clone(m.ctx, p.Repo)
+		if err != nil {
+			return actionMsg{err: fmt.Errorf("could not clone %s into %s: %w", p.Repo, target, err)}
+		}
+		cloned := &clonedRepo{repo: p.Repo, dir: dir}
+		if err := m.cfg.Checkout(m.ctx, dir, p); err != nil {
+			return actionMsg{err: fmt.Errorf("cloned %s into %s, but could not check out %s: %w", p.Repo, target, p.HeadRef, err), cloned: cloned}
+		}
+		return actionMsg{done: "Cloned " + p.Repo + " into " + target + " and checked out " + p.HeadRef, cloned: cloned}
 	})
 }
 
@@ -395,6 +425,10 @@ func (m Model) openInIDE(dir string, p pulls.PR, editor ide.IDE) (tea.Model, tea
 
 func (m Model) actionDone(msg actionMsg) (tea.Model, tea.Cmd) {
 	m.working = false
+	if msg.cloned != nil {
+		m.clones = maps.Clone(m.clones)
+		m.clones[strings.ToLower(msg.cloned.repo)] = msg.cloned.dir
+	}
 	if msg.err != nil {
 		m.flash = ui.Warning.Render(msg.err.Error())
 		return m, nil
@@ -500,14 +534,25 @@ func (m Model) title() string {
 // help is the key hints, after the latest action's result when there is one, cut to the width.
 func (m Model) help() string {
 	width := m.width - 2*ui.HorizontalMargin
+	keys := m.keys()
 	if m.flash == "" {
-		return ui.Help.Render(ui.FitLine(listHelp, width))
+		return ui.Help.Render(ui.FitLine(keys, width))
 	}
 	flash := m.flash
 	if m.working {
 		flash = m.spinner.View() + " " + flash
 	}
-	return ui.Help.Render(ui.FitLine(flash+flashGap+ui.Muted.Render(listHelp), width))
+	return ui.Help.Render(ui.FitLine(flash+flashGap+ui.Muted.Render(keys), width))
+}
+
+// keys is the list's key hints; c clones the selected pull request's repository when it is not
+// cloned yet.
+func (m Model) keys() string {
+	p, ok := m.list.current()
+	if _, cloned := m.clone(p); ok && !cloned {
+		return fmt.Sprintf(listHelp, cloneKey)
+	}
+	return fmt.Sprintf(listHelp, checkoutKey)
 }
 
 func (m Model) quit() (tea.Model, tea.Cmd) {

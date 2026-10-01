@@ -38,7 +38,8 @@ on GitHub, with their CI, review and merge state. The details box shows each che
 reviewer's verdict and whether the branch conflicts with its base.
 
 Press enter to open a pull request in the browser, c to check out its branch in your local clone
-(found in ~/projects by its remote; refused while that clone has uncommitted changes), i to check
+(found in ~/projects by its remote; refused while that clone has uncommitted changes, and cloned
+into ~/projects with gh repo clone first when there is none), i to check
 out its branch the same way and open the clone in its IDE, and l to read the log of its failed GitHub Actions checks.
 
 It reads GitHub through the gh CLI, so it uses gh's login. When output is not a terminal, the pull
@@ -77,6 +78,9 @@ func runPRs(ctx context.Context, out io.Writer, flags prsFlags) error {
 		Home:   home,
 		Load:   func(ctx context.Context) (pulls.Dashboard, error) { return pulls.Load(ctx, runner) },
 		Clones: func() map[string]string { return pulls.Clones(root) },
+		Clone: func(ctx context.Context, repo string) (string, error) {
+			return pulls.Clone(ctx, root, repo)
+		},
 		Checkout: func(ctx context.Context, dir string, p pulls.PR) error {
 			return pulls.Checkout(ctx, runner, dir, p)
 		},

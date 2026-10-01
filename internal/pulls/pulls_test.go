@@ -190,3 +190,16 @@ func writeFile(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestCloneRefusesAFolderThatExists(t *testing.T) {
+	root := t.TempDir()
+	if got := CloneDir(root, "acme/api"); got != filepath.Join(root, "api") {
+		t.Errorf("CloneDir = %q", got)
+	}
+	if err := os.Mkdir(filepath.Join(root, "api"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Clone(context.Background(), root, "acme/api"); !errors.Is(err, ErrFolderTaken) {
+		t.Errorf("Clone = %v, want ErrFolderTaken without running gh", err)
+	}
+}
