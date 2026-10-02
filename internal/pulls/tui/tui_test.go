@@ -128,7 +128,7 @@ func view(m Model) string {
 func TestListGroupsReviewsBeforeYourOwn(t *testing.T) {
 	m := loaded(t, Config{}, &fakeActions{})
 	out := view(m)
-	order := []string{"NEEDS YOUR REVIEW  1", "▸ ✖ web#9", "Add search  @kim", "conflicts", "YOURS  1", "✖ api#2", "checks failing", "✖ 2/3"}
+	order := []string{"NEEDS YOUR REVIEW  1", "▸ ✖  web#9", "Add search  @kim", "conflicts", "YOURS  1", "✖  api#2", "checks failing", "✖ 2/3"}
 	last := -1
 	for _, want := range order {
 		i := strings.Index(out, want)
@@ -392,5 +392,49 @@ func TestPlainRow(t *testing.T) {
 	got := strings.Join(PlainRow(p, "me", time.Now()), "|")
 	if got != "acme/web#9|Add search  @kim|conflicts|–|1h 0m ago|https://github.com/acme/web/pull/9" {
 		t.Errorf("PlainRow = %q", got)
+	}
+}
+
+func TestApprovedPullRequestStillCheckingConflictsIsNotReviewRequired(t *testing.T) {
+	p := pulls.PR{ReviewDecision: pulls.Approved, Mergeable: "UNKNOWN"}
+	if got := StateText(p); got != "checking conflicts" {
+		t.Errorf("StateText = %q", got)
+	}
+}
+
+func TestRunningChecksSpinTheStatusIcon(t *testing.T) {
+	d := sampleDashboard()
+	d.Mine[0].Checks = []pulls.Check{{Name: "test", State: pulls.Pending}, {Name: "lint", State: pulls.Passed}}
+	next, cmd := New(context.Background(), Config{}).Update(loadedMsg{dashboard: d})
+	if cmd == nil {
+		t.Fatal("running checks should start the icon spinner")
+	}
+	m := next.(Model)
+	frame := m.checksSpinner.View()
+	if out := view(m); !strings.Contains(out, frame+" api#2") || !strings.Contains(out, "✖  web#9") {
+		t.Errorf("only the pull request with running checks should spin %q:\n%s", frame, out)
+	}
+}
+
+func TestIconSpinnerStopsWhenNoChecksRun(t *testing.T) {
+	next, _ := New(context.Background(), Config{}).Update(loadedMsg{dashboard: sampleDashboard()})
+	if next.(Model).checksTicking {
+		t.Error("no running checks should leave the icon spinner stopped")
+	}
+}
+
+func TestAutoRefreshReadsGitHubAgain(t *testing.T) {
+	m := loaded(t, Config{}, &fakeActions{})
+	next, cmd := m.Update(autoRefreshMsg{seq: m.refreshSeq})
+	if !next.(Model).refreshing || cmd == nil {
+		t.Error("the latest timer should start a refresh")
+	}
+}
+
+func TestAutoRefreshIgnoresSupersededTimers(t *testing.T) {
+	m := loaded(t, Config{}, &fakeActions{})
+	next, cmd := m.Update(autoRefreshMsg{seq: m.refreshSeq - 1})
+	if next.(Model).refreshing || cmd != nil {
+		t.Error("a timer set before the latest load should do nothing")
 	}
 }

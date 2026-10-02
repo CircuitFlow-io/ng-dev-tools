@@ -76,6 +76,7 @@ const (
 	NeedsChanges
 	Draft
 	ChecksRunning
+	CheckingConflicts
 	Ready
 	Waiting
 )
@@ -94,9 +95,11 @@ func (p PR) Status() Status {
 		return Draft
 	case checks.Pending > 0:
 		return ChecksRunning
-	case p.ReviewDecision != ReviewRequired && p.NoConflicts():
-		return Ready
-	default:
+	case p.ReviewDecision == ReviewRequired:
 		return Waiting
+	case !p.NoConflicts():
+		return CheckingConflicts
+	default:
+		return Ready
 	}
 }

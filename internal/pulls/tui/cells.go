@@ -32,21 +32,26 @@ type glyph struct {
 }
 
 var glyphs = map[pulls.Status]glyph{
-	pulls.Conflicts:     {failMark, ui.Danger},
-	pulls.ChecksFailing: {failMark, ui.Danger},
-	pulls.NeedsChanges:  {"●", ui.Warning},
-	pulls.Draft:         {"◦", ui.Muted},
-	pulls.ChecksRunning: {pendingMark, accent},
-	pulls.Ready:         {passMark, ui.Success},
-	pulls.Waiting:       {"○", ui.Muted},
+	pulls.Conflicts:         {failMark, ui.Danger},
+	pulls.ChecksFailing:     {failMark, ui.Danger},
+	pulls.NeedsChanges:      {"●", ui.Warning},
+	pulls.Draft:             {"◦", ui.Muted},
+	pulls.ChecksRunning:     {pendingMark, accent},
+	pulls.CheckingConflicts: {pendingMark, ui.Muted},
+	pulls.Ready:             {passMark, ui.Success},
+	pulls.Waiting:           {"○", ui.Muted},
 }
 
 func isStale(p pulls.PR, now time.Time) bool {
 	return now.Sub(p.UpdatedAt) > staleAfter
 }
 
-func glyphCell(p pulls.PR) ui.Cell {
+// glyphCell is the status icon, spinning in the status's color while checks are still running.
+func glyphCell(p pulls.PR, runningFrame string) ui.Cell {
 	g := glyphs[p.Status()]
+	if runningFrame != "" && p.HasRunningChecks() {
+		return ui.Cell{ui.NewSpan(runningFrame, g.style)}
+	}
 	return ui.Cell{ui.NewSpan(g.symbol, g.style)}
 }
 
@@ -78,6 +83,8 @@ func stateCell(p pulls.PR) ui.Cell {
 		return ui.Cell{ui.NewSpan("draft", ui.Muted)}
 	case pulls.ChecksRunning:
 		return ui.Cell{ui.NewSpan("checks running", accent)}
+	case pulls.CheckingConflicts:
+		return ui.Cell{ui.NewSpan("checking conflicts", ui.Muted)}
 	case pulls.Ready:
 		return ui.Cell{ui.NewSpan("ready to merge", ui.Success)}
 	}
