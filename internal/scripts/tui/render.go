@@ -42,7 +42,7 @@ func dropLastRune(s string) string {
 }
 
 func (p scriptPicker) paneWidth() int {
-	if !hasPackagePane(p.ws) {
+	if !p.hasPackageColumn() {
 		return 0
 	}
 	longest := 0
@@ -56,33 +56,27 @@ func (p scriptPicker) header() string {
 	if p.searching() {
 		return ui.Muted.Render(fmt.Sprintf("  %s for %q", ui.Count(len(p.results), "match"), p.query))
 	}
-	scriptsTitle := "SCRIPTS"
-	if hasPackagePane(p.ws) {
-		scriptsTitle += " in " + p.focused().title
+	if !p.hasPackageColumn() {
+		return ui.Muted.Render("  SCRIPTS")
 	}
-	return ui.Muted.Render(ui.PadRight("  PACKAGES", p.paneWidth())) + ui.Muted.Render("  "+scriptsTitle)
+	return ui.Muted.Render(ui.PadRight("  PACKAGES", p.paneWidth())) + ui.Muted.Render("  SCRIPTS in "+p.focused().title)
 }
 
-// rows renders the lists, always p.height lines tall so the details box below stays in place.
-func (p scriptPicker) rows() string {
-	var lines []string
+// rows renders the packages and scripts columns, or the search results, one string per line.
+func (p scriptPicker) rows(f focus) []string {
 	switch {
 	case p.searching():
-		lines = p.resultRows()
-	case hasPackagePane(p.ws):
-		lines = p.paneRows()
+		return p.resultRows(f == focusScripts)
+	case p.hasPackageColumn():
+		return p.paneRows(f)
 	default:
-		lines = p.scriptRows()
+		return p.scriptRows(f == focusScripts)
 	}
-	for len(lines) < p.height {
-		lines = append(lines, "")
-	}
-	return strings.Join(lines, "\n")
 }
 
-func (p scriptPicker) paneRows() []string {
-	right := p.scriptRows()
-	left := p.groupRows()
+func (p scriptPicker) paneRows(f focus) []string {
+	right := p.scriptRows(f == focusScripts)
+	left := p.groupRows(f == focusPackages)
 	lines := make([]string, max(len(left), len(right)))
 	for i := range lines {
 		l, r := "", ""
@@ -97,7 +91,7 @@ func (p scriptPicker) paneRows() []string {
 	return lines
 }
 
-func (p scriptPicker) groupRows() []string {
+func (p scriptPicker) groupRows(focused bool) []string {
 	width := p.paneWidth()
 	titleWidth := width - cursorWidth - countWidth - columnGap
 	start, end := p.groupCursor.Visible()
@@ -105,20 +99,23 @@ func (p scriptPicker) groupRows() []string {
 	for i := start; i < end; i++ {
 		g := p.groups[i]
 		title := ui.PadRight(ui.Truncate(g.title, titleWidth), titleWidth)
-		count := ui.Muted.Render(ui.PadLeft(strconv.Itoa(len(g.targets)), countWidth))
+		count := ui.PadLeft(strconv.Itoa(len(g.targets)), countWidth)
 		switch {
+		case i == p.groupCursor.Index && focused:
+			painter := ui.NewRowPainter(true, p.highlight)
+			lines = append(lines, painter.Fill(painter.Cursor()+painter.Paint(ui.Bold, title)+painter.Paint(ui.Muted, count), width-columnGap))
 		case i == p.groupCursor.Index:
-			lines = append(lines, ui.Selected.Render("▸ "+title)+count)
+			lines = append(lines, ui.Selected.Render("▸ "+title)+ui.Muted.Render(count))
 		case g.recent:
-			lines = append(lines, "  "+ui.Heading.Render(title)+count)
+			lines = append(lines, "  "+ui.Heading.Render(title)+ui.Muted.Render(count))
 		default:
-			lines = append(lines, "  "+title+count)
+			lines = append(lines, "  "+title+ui.Muted.Render(count))
 		}
 	}
 	return lines
 }
 
-func (p scriptPicker) scriptRows() []string {
+func (p scriptPicker) scriptRows(focused bool) []string {
 	g := p.focused()
 	label := func(t scripts.Target) string {
 		if g.recent {
@@ -134,8 +131,8 @@ func (p scriptPicker) scriptRows() []string {
 	lines := make([]string, 0, end-start)
 	for i := start; i < end; i++ {
 		t := g.targets[i]
-		painter := ui.NewRowPainter(i == p.cursor.Index, p.highlight)
-		row := painter.Cursor() +
+		painter := ui.NewRowPainter(i == p.cursor.Index && focused, p.highlight)
+		row := rowCursor(painter, i == p.cursor.Index) +
 			painter.Paint(nameStyle(painter).Width(nameWidth), ui.Truncate(label(t), nameWidth-columnGap)) +
 			painter.Paint(ui.Muted, ui.Truncate(t.Script.Command, commandWidth-1))
 		lines = append(lines, painter.Fill(row, width))
@@ -143,7 +140,7 @@ func (p scriptPicker) scriptRows() []string {
 	return lines
 }
 
-func (p scriptPicker) resultRows() []string {
+func (p scriptPicker) resultRows(focused bool) []string {
 	if len(p.results) == 0 {
 		return []string{ui.Muted.Render("  No scripts match")}
 	}
@@ -155,14 +152,22 @@ func (p scriptPicker) resultRows() []string {
 	lines := make([]string, 0, end-start)
 	for i := start; i < end; i++ {
 		t := p.results[i]
-		painter := ui.NewRowPainter(i == p.resultCursor.Index, p.highlight)
-		row := painter.Cursor() +
+		painter := ui.NewRowPainter(i == p.resultCursor.Index && focused, p.highlight)
+		row := rowCursor(painter, i == p.resultCursor.Index) +
 			painter.Paint(lipgloss.NewStyle().Width(packageWidth), ui.Truncate(packageTitle(p.ws, t.Package), packageWidth-columnGap)) +
 			painter.Paint(nameStyle(painter).Width(nameWidth), ui.Truncate(t.Script.Name, nameWidth-columnGap)) +
 			painter.Paint(ui.Muted, ui.Truncate(t.Script.Command, commandWidth-1))
 		lines = append(lines, painter.Fill(row, p.width))
 	}
 	return lines
+}
+
+// rowCursor marks the row under a column's cursor, also while another column has focus.
+func rowCursor(painter ui.RowPainter, atCursor bool) string {
+	if atCursor && !painter.IsHighlighted() {
+		return ui.Selected.Render("▸ ")
+	}
+	return painter.Cursor()
 }
 
 func nameStyle(painter ui.RowPainter) lipgloss.Style {
@@ -180,12 +185,13 @@ func fitWidth(targets []scripts.Target, field func(scripts.Target) string, least
 	return min(most, max(least, longest+columnGap))
 }
 
-// details explains the script under the cursor: its command, what it calls and how it will run.
-func (p scriptPicker) details() string {
-	width := p.width - detailFrameWidth
+// details explains the script under the cursor in a box boxWidth wide: its command, what it calls
+// and how it will run.
+func (p scriptPicker) details(boxWidth int) string {
+	width := boxWidth - detailFrameWidth
 	t, ok := p.current()
 	if !ok {
-		return detailBox.Width(p.width).Render(padLines([]string{ui.Muted.Render("No script selected")}))
+		return messageBox(boxWidth, ui.Muted.Render("No script selected"))
 	}
 	lines := []string{ui.Bold.Render(targetLabel(t))}
 	lines = append(lines, wrap(t.Script.Command, width, maxCommandLines)...)
@@ -193,7 +199,12 @@ func (p scriptPicker) details() string {
 	notes := p.notes(t, width)
 	lines = append(lines, notes[:min(len(notes), max(room, 0))]...)
 	lines = append(lines, p.runLine(t, width))
-	return detailBox.Width(p.width).Render(padLines(lines))
+	return detailBox.Width(boxWidth).Render(padLines(lines))
+}
+
+// messageBox is the details box holding a single line, such as while the scripts load.
+func messageBox(boxWidth int, line string) string {
+	return detailBox.Width(boxWidth).Render(padLines([]string{line}))
 }
 
 // notes are what the command alone does not say, most important first.

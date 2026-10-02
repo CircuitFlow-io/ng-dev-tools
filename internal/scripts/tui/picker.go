@@ -109,15 +109,24 @@ func targetLabel(t scripts.Target) string {
 	return t.Package.RelDir + scriptArrow + t.Script.Name
 }
 
-// initialGroup focuses the package holding currentDir, then the recent runs, then the root.
+// initialGroup focuses the package holding currentDir, then the package of the last run, then the
+// recent runs or the root.
 func (p scriptPicker) initialGroup(currentDir string) int {
 	if pkg, ok := p.ws.PackageFor(currentDir); ok && !pkg.IsRoot() {
-		i := slices.IndexFunc(p.groups, func(g group) bool { return !g.recent && g.targets[0].Package.Dir == pkg.Dir })
-		if i >= 0 {
+		if i := p.packageGroup(pkg.RelDir); i >= 0 {
+			return i
+		}
+	}
+	if len(p.recentRuns) > 0 {
+		if i := p.packageGroup(p.recentRuns[0].Package); i >= 0 {
 			return i
 		}
 	}
 	return 0
+}
+
+func (p scriptPicker) packageGroup(relDir string) int {
+	return slices.IndexFunc(p.groups, func(g group) bool { return !g.recent && g.targets[0].Package.RelDir == relDir })
 }
 
 func (p scriptPicker) focused() group {
@@ -174,38 +183,35 @@ func (p scriptPicker) current() (scripts.Target, bool) {
 	return targets[p.cursor.Index], true
 }
 
-// handleKey applies a search edit, a package switch or a move, and reports whether it was one.
-func (p *scriptPicker) handleKey(key tea.KeyPressMsg) bool {
-	switch key.String() {
-	case "backspace":
+// handleKey applies a search edit or a move in the column with focus, and reports whether it was
+// one.
+func (p *scriptPicker) handleKey(key tea.KeyPressMsg, f focus) bool {
+	switch {
+	case key.String() == "backspace":
 		if !p.searching() {
 			return false
 		}
 		p.setQuery(dropLastRune(p.query))
 		return true
-	case "tab", "right":
-		return p.moveGroup(1)
-	case "shift+tab", "left":
-		return p.moveGroup(-1)
-	}
-	if projectlist.IsTyping(key) {
+	case projectlist.IsTyping(key):
 		p.setQuery(p.query + key.Text)
 		return true
-	}
-	if p.searching() {
+	case p.searching():
 		return p.resultCursor.HandleKey(key.String())
+	case f == focusPackages:
+		if !p.groupCursor.HandleKey(key.String()) {
+			return false
+		}
+		p.focusGroup()
+		return true
 	}
 	return p.cursor.HandleKey(key.String())
 }
 
-// moveGroup focuses the next or previous package, wrapping around.
-func (p *scriptPicker) moveGroup(delta int) bool {
-	if p.searching() || len(p.groups) < 2 {
-		return false
-	}
-	p.groupCursor.MoveTo((p.groupCursor.Index + delta + len(p.groups)) % len(p.groups))
-	p.focusGroup()
-	return true
+// hasPackageColumn reports whether the packages column is shown: for a monorepo, while not
+// searching.
+func (p scriptPicker) hasPackageColumn() bool {
+	return hasPackagePane(p.ws) && !p.searching()
 }
 
 func (p *scriptPicker) resize(width, height int) {
