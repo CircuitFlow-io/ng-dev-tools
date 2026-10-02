@@ -90,6 +90,23 @@ A folder that only groups other folders (no `.git` and no files of its own) is r
 
 Keys: type to filter, `↑/↓` move, `enter` choose, `esc` clear the filter or quit. In the IDE box: `↑/↓` or `1`-`9`, `enter` open, `esc` back.
 
+### `ngt run`
+
+Picks a `package.json` script and runs it, in three columns: your npm and pnpm projects in `~/projects`, the packages of a monorepo (left out for a single package), and the selected package's scripts. The details box shows the full command, the scripts it calls, pre/post hooks and the Node version it runs with (from `.nvmrc`, via nvm).
+
+```sh
+ngt run                    # pick a project, package and script
+ngt run web dev            # run apps/web's dev script straight away
+ngt run --last             # rerun the last script, here or anywhere
+ngt run | grep test        # plain list of this project's scripts
+```
+
+The screen opens on the project, package and script you ran last, with the scripts column focused, so `enter` runs it again. Inside a project it opens on that project, and on the package you are in. Moving to another project or package selects the script you last ran there. Projects are ordered by when you last ran a script in them or opened them with `ngt open`, and the runs are kept in `~/.config/ngt/run.json`.
+
+With arguments, a script named exactly by them runs straight away: `ngt run test` runs the current package's test, `ngt run web dev` the dev script of `apps/web`. Otherwise the arguments start the search, or the project filter outside a project.
+
+Keys: `←/→` or `tab` move between columns, `↑/↓` move within one, `enter` go to the next column or run the script, `esc` clear the search or quit. Typing filters the projects in the projects column and searches every script of the project in the others.
+
 ### `ngt status`
 
 Shows the git state of every repository in `~/projects` on one screen, the ones needing attention first: a merge or rebase left in progress (`✖`), a branch behind its remote (`⇣`), uncommitted changes (`●`), then commits not pushed yet (`⇡`). Repositories with only stashes or other branches worth a look get a `◦`, and clean ones a `✓`.
@@ -273,6 +290,8 @@ internal/doctor/        doctor domain: the check catalog (one file per group) an
 internal/doctor/tui/    progress screen and report for `doctor`
 internal/projects/      open domain: finding projects, recent activity, git branch and status, saved choices
 internal/projects/tui/  project list and IDE select box for `open`, also the project picker for `claude`
+internal/scripts/       run domain: package.json scripts of npm and pnpm projects and monorepos, Node versions, run history
+internal/scripts/tui/   projects, packages and scripts columns for `run`
 internal/ide/           detecting installed IDEs and opening projects, or a file at a line, in them
 internal/ide/idepicker/ the IDE select box shared by `open`, `status`, `prs` and `todo`
 internal/gitstatus/     status domain: reading each repository's changes, sync, stashes, branches; fetch

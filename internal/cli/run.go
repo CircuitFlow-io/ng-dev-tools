@@ -49,13 +49,15 @@ func newRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run [package] [script]",
 		Short: "Pick a package.json script, in any package of a monorepo, and run it",
-		Long: `Inside an npm or pnpm project, list its scripts: for a monorepo, the packages on the left and
-the focused package's scripts on the right. Type to search every package, and press enter to run
-the script in its package folder. The details box shows the full command, the scripts it calls,
-pre/post hooks and the Node version it runs with (from .nvmrc, via nvm).
+		Long: `Pick a script in three columns: your npm and pnpm projects in ~/projects, the packages of a
+monorepo, and the selected package's scripts. ←/→ move between the columns, ↑/↓ within one, and
+enter moves on to the next column or runs the script in its package folder. The details box shows
+the full command, the scripts it calls, pre/post hooks and the Node version it runs with (from
+.nvmrc, via nvm).
 
-Outside a project, pick one from ~/projects first. The scripts you run are remembered and listed
-first next time.
+The screen opens on the project, package and script you ran last, so enter runs it again. Inside a
+project, it opens on that project and the package you are in. In the projects column typing
+filters the projects; elsewhere it searches every script of the project.
 
 With arguments, a script named exactly by them runs straight away: "ngt run test" runs the
 current package's test, "ngt run web dev" the dev script of apps/web. Otherwise the arguments
