@@ -125,7 +125,7 @@ Keys: `↑/↓` move, `enter` open in IDE, `f` fetch the selected repository, `F
 
 ### `ngt prs`
 
-Your open pull requests and the ones waiting for your review, across every repository on GitHub, in one list: review requests on top, then your own. Each row says what the pull request is waiting for (`conflicts`, `checks failing`, `changes requested`, `draft`, `checks running`, `ready to merge`, or who it is waiting on), its CI counts, size and last update. The details box lists every check, each reviewer's verdict and whether the branch conflicts with its base.
+Your open pull requests and the ones waiting for your review, across every repository on GitHub, in one list: review requests on top, then your own. Each row says what the pull request is waiting for (`conflicts`, `checks failing`, `changes requested`, `draft`, `checks running`, `checking conflicts`, `ready to merge`, or who it is waiting on), its CI counts, size and last update; its status icon spins while any of its checks are still running. The list refreshes itself every 30 seconds; `r` refreshes it now. The details box lists every check, each reviewer's verdict and whether the branch conflicts with its base.
 
 ```sh
 ngt prs                  # interactive list (alias: ngt pr)

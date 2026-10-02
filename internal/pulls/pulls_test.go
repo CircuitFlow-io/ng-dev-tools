@@ -90,7 +90,9 @@ func TestStatus(t *testing.T) {
 		{"approved and clean", PR{Mergeable: mergeable, ReviewDecision: Approved}, Ready},
 		{"no review needed", PR{Mergeable: mergeable}, Ready},
 		{"review required", PR{Mergeable: mergeable, ReviewDecision: ReviewRequired}, Waiting},
-		{"conflicts unknown", PR{Mergeable: "UNKNOWN"}, Waiting},
+		{"review required, conflicts unknown", PR{Mergeable: "UNKNOWN", ReviewDecision: ReviewRequired}, Waiting},
+		{"approved, conflicts unknown", PR{Mergeable: "UNKNOWN", ReviewDecision: Approved}, CheckingConflicts},
+		{"no review needed, conflicts unknown", PR{Mergeable: "UNKNOWN"}, CheckingConflicts},
 	}
 	for _, tt := range tests {
 		if got := tt.pr.Status(); got != tt.want {

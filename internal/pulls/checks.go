@@ -51,6 +51,11 @@ func (p PR) CheckCounts() CheckCounts {
 	return c
 }
 
+// HasRunningChecks reports whether any check is still queued or running.
+func (p PR) HasRunningChecks() bool {
+	return p.CheckCounts().Pending > 0
+}
+
 // FailingChecks are the checks that failed.
 func (p PR) FailingChecks() []Check {
 	var failing []Check

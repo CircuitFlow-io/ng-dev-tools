@@ -8,6 +8,7 @@ import (
 	"maps"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
@@ -29,6 +30,8 @@ const (
 	checkoutKey = "c check out"
 	cloneKey    = "c clone"
 	flashGap    = "   "
+	// autoRefreshEvery is how long after each load the list reads GitHub again by itself.
+	autoRefreshEvery = 30 * time.Second
 )
 
 var errNoIDE = errors.New("no supported IDE found in /Applications or ~/Applications")
@@ -94,6 +97,11 @@ type openedIn struct {
 	editor ide.IDE
 }
 
+// autoRefreshMsg asks for a refresh; seq tells a timer set by the latest load from older ones.
+type autoRefreshMsg struct {
+	seq int
+}
+
 type logMsg struct {
 	check pulls.Check
 	lines []pulls.LogLine
@@ -106,21 +114,25 @@ type Model struct {
 	cancel context.CancelFunc
 	cfg    Config
 
-	state      state
-	width      int
-	height     int
-	darkBG     bool
-	spinner    spinner.Model
-	ticking    bool
-	refreshing bool
-	working    bool
-	list       list
-	clones     map[string]string
-	picker     idepicker.Picker
-	pickingFor pulls.PR
-	logs       logView
-	flash      string
-	err        error
+	state   state
+	width   int
+	height  int
+	darkBG  bool
+	spinner spinner.Model
+	ticking bool
+	// checksSpinner animates the status icon of pull requests whose checks are still running.
+	checksSpinner spinner.Model
+	checksTicking bool
+	refreshSeq    int
+	refreshing    bool
+	working       bool
+	list          list
+	clones        map[string]string
+	picker        idepicker.Picker
+	pickingFor    pulls.PR
+	logs          logView
+	flash         string
+	err           error
 }
 
 // New creates the model. Cancelling ctx stops what is loading.
@@ -130,15 +142,16 @@ func New(ctx context.Context, cfg Config) Model {
 		cfg.ProjectIDEs = map[string]string{}
 	}
 	m := Model{
-		ctx:     ctx,
-		cancel:  cancel,
-		cfg:     cfg,
-		width:   defaultWidth,
-		height:  defaultHeight,
-		darkBG:  true,
-		spinner: spinner.New(spinner.WithSpinner(spinner.Points), spinner.WithStyle(ui.Title)),
-		ticking: true,
-		list:    newList(pulls.Dashboard{}),
+		ctx:           ctx,
+		cancel:        cancel,
+		cfg:           cfg,
+		width:         defaultWidth,
+		height:        defaultHeight,
+		darkBG:        true,
+		spinner:       spinner.New(spinner.WithSpinner(spinner.Points), spinner.WithStyle(ui.Title)),
+		ticking:       true,
+		checksSpinner: spinner.New(spinner.WithSpinner(spinner.Moon)),
+		list:          newList(pulls.Dashboard{}),
 	}
 	m.resize(m.width, m.height)
 	return m
@@ -173,9 +186,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.picker.SetHighlight(m.list.highlight)
 		return m, nil
 	case spinner.TickMsg:
+		if msg.ID == m.checksSpinner.ID() {
+			return m.tickChecks(msg)
+		}
 		return m.tick(msg)
 	case loadedMsg:
 		return m.loaded(msg)
+	case autoRefreshMsg:
+		if msg.seq != m.refreshSeq {
+			return m, nil
+		}
+		return m.refresh()
 	case actionMsg:
 		return m.actionDone(msg)
 	case logMsg:
@@ -227,6 +248,25 @@ func (m Model) tick(msg spinner.TickMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// tickChecks animates the running checks' icons while any pull request has them.
+func (m Model) tickChecks(msg spinner.TickMsg) (tea.Model, tea.Cmd) {
+	if !m.list.hasRunningChecks() {
+		m.checksTicking = false
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.checksSpinner, cmd = m.checksSpinner.Update(msg)
+	return m, cmd
+}
+
+func (m *Model) startChecksTicking() tea.Cmd {
+	if m.checksTicking || !m.list.hasRunningChecks() {
+		return nil
+	}
+	m.checksTicking = true
+	return m.checksSpinner.Tick
+}
+
 func (m *Model) startTicking() tea.Cmd {
 	if m.ticking {
 		return nil
@@ -244,7 +284,7 @@ func (m Model) loaded(msg loadedMsg) (tea.Model, tea.Cmd) {
 			return m.quit()
 		}
 		m.flash = ui.Warning.Render("Could not refresh: " + msg.err.Error())
-		return m, nil
+		return m, m.scheduleAutoRefresh()
 	}
 	current, hadCurrent := m.list.current()
 	highlight := m.list.highlight
@@ -258,7 +298,14 @@ func (m Model) loaded(msg loadedMsg) (tea.Model, tea.Cmd) {
 	if firstLoad {
 		m.state = stateListing
 	}
-	return m, nil
+	return m, tea.Batch(m.startChecksTicking(), m.scheduleAutoRefresh())
+}
+
+// scheduleAutoRefresh sets the next refresh, superseding any timer set before.
+func (m *Model) scheduleAutoRefresh() tea.Cmd {
+	m.refreshSeq++
+	seq := m.refreshSeq
+	return tea.Tick(autoRefreshEvery, func(time.Time) tea.Msg { return autoRefreshMsg{seq: seq} })
 }
 
 func (m Model) updateListing(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -524,10 +571,12 @@ func (m Model) listView() string {
 	width := m.width - 2*ui.HorizontalMargin
 	p, ok := m.list.current()
 	clone, _ := m.clone(p)
+	list := m.list
+	list.runningFrame = m.checksSpinner.View()
 	lines := []string{
 		m.title(),
 		"",
-		m.list.view(),
+		list.view(),
 		details(p, ok, clone, m.cfg.Home, m.list.now, width),
 		m.help(),
 	}

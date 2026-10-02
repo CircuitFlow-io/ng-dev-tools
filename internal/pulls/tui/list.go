@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	cursorWidth   = 2
-	glyphWidth    = 2
+	cursorWidth = 2
+	// glyphWidth fits the spinner's two-column moon and a space.
+	glyphWidth    = 3
 	columnGap     = 2
 	minRefWidth   = 8
 	maxRefWidth   = 28
@@ -46,6 +47,9 @@ type list struct {
 	height    int
 	now       time.Time
 	highlight color.Color
+	// runningFrame is the spinner's current frame, shown as the icon of pull requests whose checks
+	// are still running.
+	runningFrame string
 }
 
 func newList(d pulls.Dashboard) list {
@@ -69,6 +73,10 @@ func (l list) all() []pulls.PR {
 		all = append(all, g.prs...)
 	}
 	return all
+}
+
+func (l list) hasRunningChecks() bool {
+	return slices.ContainsFunc(l.all(), pulls.PR.HasRunningChecks)
 }
 
 func (l list) current() (pulls.PR, bool) {
@@ -197,7 +205,7 @@ func (l list) row(p pulls.PR, index int, lay layout) string {
 		refStyle, titleStyle = refStyle.Bold(true), titleStyle.Bold(true)
 	}
 	row := painter.Cursor() +
-		glyphCell(p).Render(painter, glyphWidth) +
+		glyphCell(p, l.runningFrame).Render(painter, glyphWidth) +
 		refCell(p, refStyle).Truncate(lay.ref-columnGap).Render(painter, lay.ref) +
 		titleCell(p, l.viewer, titleStyle).Truncate(lay.title-columnGap).Render(painter, lay.title) +
 		stateCell(p).Render(painter, lay.state) +
