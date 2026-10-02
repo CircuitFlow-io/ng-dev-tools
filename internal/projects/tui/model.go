@@ -23,8 +23,14 @@ const (
 	defaultHeight = 30
 	// chromeLines is the space taken by everything around the list on the project screen.
 	chromeLines = 9
-	projectHelp = "type to filter · ↑/↓ move · enter choose IDE · esc clear or quit"
 )
+
+var openScreen = Launcher{
+	Title:       "Open a project",
+	Help:        "type to filter · ↑/↓ move · enter choose IDE · esc clear or quit",
+	WindowTitle: "ngt open",
+	UsedVerb:    "opened",
+}
 
 type state int
 
@@ -43,6 +49,19 @@ type Config struct {
 	State  projects.State
 	IDEs   []ide.IDE
 	Runner macos.Runner
+	// Launcher, when set, makes this a project picker for another command.
+	Launcher *Launcher
+}
+
+// Launcher is a project picker for a command other than ngt open: choosing a project ends the flow
+// without the IDE box, and the projects are ordered by Used instead of when ngt open opened them.
+type Launcher struct {
+	Title       string
+	Help        string
+	WindowTitle string
+	// UsedVerb names Used in the activity column, such as "opened".
+	UsedVerb string
+	Used     map[string]time.Time
 }
 
 type scannedMsg struct {
@@ -56,17 +75,23 @@ type Model struct {
 	cancel context.CancelFunc
 	cfg    Config
 
-	state   state
-	width   int
-	height  int
-	darkBG  bool
-	spinner spinner.Model
-	list    projectlist.List
-	picker  idepicker.Picker
-	project projects.Project
-	editor  ide.IDE
-	chosen  bool
-	err     error
+	state  state
+	width  int
+	height int
+	darkBG bool
+	// bgKnown is set once the terminal answered the background color query. A single match is only
+	// chosen after that, or the late answer would be typed into the program ngt hands over to.
+	bgKnown bool
+	// chooseSoleMatch is set while the starting query matches one project, to choose it once
+	// bgKnown.
+	chooseSoleMatch bool
+	spinner         spinner.Model
+	list            projectlist.List
+	picker          idepicker.Picker
+	project         projects.Project
+	editor          ide.IDE
+	chosen          bool
+	err             error
 }
 
 // New creates the model. Cancelling ctx stops the scan.
@@ -83,7 +108,7 @@ func New(ctx context.Context, cfg Config) Model {
 	}
 }
 
-// Chosen is the project and IDE picked, or ok false when the user quit.
+// Chosen is the project and IDE picked, or ok false when the user quit. A Launcher picks no IDE.
 func (m Model) Chosen() (project projects.Project, editor ide.IDE, ok bool) {
 	return m.project, m.editor, m.chosen
 }
@@ -93,6 +118,16 @@ func (m Model) Err() error {
 	return m.err
 }
 
+// screen is the Launcher, or ngt open's own wording and order without one.
+func (m Model) screen() Launcher {
+	if m.cfg.Launcher != nil {
+		return *m.cfg.Launcher
+	}
+	screen := openScreen
+	screen.Used = m.cfg.State.Opened
+	return screen
+}
+
 // Init starts scanning.
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(m.spinner.Tick, m.scan(), tea.RequestBackgroundColor)
@@ -100,7 +135,7 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) scan() tea.Cmd {
 	return func() tea.Msg {
-		found, err := projects.Scan(m.ctx, m.cfg.Root, m.cfg.State.Opened)
+		found, err := projects.Scan(m.ctx, m.cfg.Root, m.screen().Used)
 		return scannedMsg{projects: found, err: err}
 	}
 }
@@ -113,9 +148,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.BackgroundColorMsg:
 		m.darkBG = msg.IsDark()
+		m.bgKnown = true
 		m.list.SetHighlight(ui.HighlightColor(m.darkBG))
 		m.picker.SetHighlight(ui.HighlightColor(m.darkBG))
-		return m, nil
+		return m.chooseSoleMatchWhenReady()
 	case projectlist.DirtyMsg:
 		m.list.SetDirty(msg.Path, msg.Dirty)
 		return m, nil
@@ -151,7 +187,7 @@ func (m Model) View() tea.View {
 		return tea.NewView("")
 	}
 	v := tea.NewView(ui.Screen.Render(content))
-	v.WindowTitle = "ngt open"
+	v.WindowTitle = m.screen().WindowTitle
 	v.AltScreen = true
 	return v
 }
@@ -183,18 +219,24 @@ func (m Model) showProjects(msg scannedMsg) (tea.Model, tea.Cmd) {
 		return m.quit()
 	}
 
-	m.list = projectlist.New(msg.projects, m.cfg.Home, time.Now(), "opened")
+	m.list = projectlist.New(msg.projects, m.cfg.Home, time.Now(), m.screen().UsedVerb)
 	m.list.SetHighlight(ui.HighlightColor(m.darkBG))
 	m.resize(m.width, m.height)
 	m.list.SetQuery(m.cfg.Query)
 	m.state = stateChoosingProject
 
 	checks := projectlist.DirtyChecks(m.ctx, m.cfg.Runner, msg.projects)
-	if m.cfg.Query != "" && len(m.list.Shown()) == 1 {
-		next, cmd := m.chooseProject()
-		return next, tea.Batch(checks, cmd)
+	m.chooseSoleMatch = m.cfg.Query != "" && len(m.list.Shown()) == 1
+	next, cmd := m.chooseSoleMatchWhenReady()
+	return next, tea.Batch(checks, cmd)
+}
+
+func (m Model) chooseSoleMatchWhenReady() (tea.Model, tea.Cmd) {
+	if !m.chooseSoleMatch || !m.bgKnown || m.state != stateChoosingProject {
+		return m, nil
 	}
-	return m, checks
+	m.chooseSoleMatch = false
+	return m.chooseProject()
 }
 
 func (m Model) updateChoosingProject(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -202,6 +244,7 @@ func (m Model) updateChoosingProject(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	m.chooseSoleMatch = false
 	switch key.String() {
 	case "enter":
 		return m.chooseProject()
@@ -223,6 +266,9 @@ func (m Model) chooseProject() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.project = project
+	if m.cfg.Launcher != nil {
+		return m.finish(ide.IDE{})
+	}
 	if len(m.cfg.IDEs) == 1 {
 		return m.finish(m.cfg.IDEs[0])
 	}
@@ -250,7 +296,8 @@ func (m Model) updateChoosingIDE(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) projectView() string {
-	title := ui.Title.Render("Open a project") +
+	screen := m.screen()
+	title := ui.Title.Render(screen.Title) +
 		ui.Muted.Render(fmt.Sprintf("  %s in %s", ui.Count(m.list.Len(), "project"), ui.TildePath(m.cfg.Root, m.cfg.Home)))
 	lines := []string{
 		title,
@@ -258,7 +305,7 @@ func (m Model) projectView() string {
 		"",
 		m.list.Header(),
 		m.list.View(),
-		ui.Help.Render(projectHelp),
+		ui.Help.Render(screen.Help),
 	}
 	return strings.Join(lines, "\n")
 }

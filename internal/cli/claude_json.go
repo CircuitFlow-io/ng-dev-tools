@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/claudesessions"
+	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects"
 )
 
 type sessionsJSON struct {
@@ -121,4 +122,36 @@ func toSessionMatchJSON(s claudesessions.Snippet) *sessionMatchJSON {
 		return nil
 	}
 	return &sessionMatchJSON{Yours: s.Yours, Before: s.Before, Match: s.Match, After: s.After}
+}
+
+type claudeProjectsJSON struct {
+	Projects []claudeProjectJSON `json:"projects"`
+}
+
+type claudeProjectJSON struct {
+	Name   string `json:"name"`
+	Path   string `json:"path"`
+	Git    bool   `json:"git"`
+	Branch string `json:"branch,omitempty"`
+	// LastSession is when a Claude session in the project was last active; Changed is its newest
+	// file, commit or checkout.
+	LastSession  time.Time `json:"lastSession,omitzero"`
+	Changed      time.Time `json:"changed,omitzero"`
+	LastActivity time.Time `json:"lastActivity,omitzero"`
+}
+
+func toClaudeProjectsJSON(found []projects.Project) claudeProjectsJSON {
+	views := make([]claudeProjectJSON, 0, len(found))
+	for _, p := range found {
+		views = append(views, claudeProjectJSON{
+			Name:         p.Name,
+			Path:         p.Path,
+			Git:          p.Git,
+			Branch:       p.Branch,
+			LastSession:  p.Opened,
+			Changed:      p.Changed,
+			LastActivity: p.LastActivity(),
+		})
+	}
+	return claudeProjectsJSON{Projects: views}
 }

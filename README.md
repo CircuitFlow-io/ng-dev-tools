@@ -180,6 +180,21 @@ The last day you worked is the most recent day before today with a commit of you
 
 Keys: `↑/↓` move, `enter`/`o` open the pull request, commit or branch on GitHub, `[` start a day earlier, `]` a day later, `t` open the Jira ticket in the row, `r` refresh, `q` quit.
 
+### `ngt claude`
+
+Lists the projects in `~/projects`, the ones you last had a Claude Code session in first, with their git branch, a `●` for uncommitted changes and when you last worked on them. Type to filter and press `enter`: ngt is replaced by `claude`, started in the project's folder, as if you had typed `cd` and `claude` yourself.
+
+```sh
+ngt claude                 # pick a project, start a new session in it
+ngt claude museum          # start filtered; a single match starts straight away
+ngt claude --root ~/work   # another projects folder
+ngt claude | grep weather  # plain list, starts nothing
+```
+
+A session counts for a project when it was started in the project's own folder, so one started in a monorepo's `apps/native` does not move the monorepo up. Only the transcripts' modification times are read, from `~/.claude/projects` (or `$CLAUDE_CONFIG_DIR/projects`), so the list opens as fast as `ngt open`. To continue an earlier session instead, use `ngt claude sessions`.
+
+Keys: type to filter, `↑/↓` move, `enter` start claude, `esc` clear the filter or quit.
+
 ### `ngt claude sessions`
 
 Every saved Claude Code session, from every folder, in one list, most recently active first: the first prompt, when it was last active, its status, the git branch, how many prompts it has and the model that wrote most of it. `claude --resume` only lists the current folder's sessions; this lists them all and searches what was said in them.
@@ -214,7 +229,7 @@ ngt settings unset jiraHost                   # back to the default
 cd "$(ngt settings get projectsDir)"
 ```
 
-- `projectsDir` is the folder that holds your projects, `~/projects` by default. `open`, `run`, `status`, `prs`, `env`, `todo`, `standup` and `claude sessions` read it, and `--root` still overrides it for one run. `clean` searches it for stale build folders alongside `~/Developer`, `~/code`, `~/src` and `~/workspace`. It must be an existing folder; a relative path or a quoted `~` is resolved when you set it.
+- `projectsDir` is the folder that holds your projects, `~/projects` by default. `open`, `run`, `status`, `prs`, `env`, `todo`, `standup`, `claude` and `claude sessions` read it, and `--root` still overrides it for one run. `clean` searches it for stale build folders alongside `~/Developer`, `~/code`, `~/src` and `~/workspace`. It must be an existing folder; a relative path or a quoted `~` is resolved when you set it.
 - `jiraHost` is your Jira site. Ticket keys such as `TS-234455` or `COREX-344` in branch names, commit subjects, pull request titles, session titles and TODO notes become underlined links to `https://<jiraHost>/browse/<key>`, clickable in terminals that support links (cmd+click in iTerm2, Ghostty, WezTerm, Kitty or Warp). Terminal.app shows them as plain text, and Wave asks to open them but then does not; in any terminal, `t` (`ctrl+t` in `claude sessions`) opens the selected row's ticket in your browser. It takes a host or any address on the site, such as a ticket's page, and keeps a folder Jira is served from (`jira.example.com/jira`). A key is any uppercase project key, a dash and a number, so the odd `UTF-8` gets a link too.
 
 ## Output for scripts and AI agents
@@ -257,7 +272,7 @@ internal/ports/tui/     Bubble Tea screens for `ports`
 internal/doctor/        doctor domain: the check catalog (one file per group) and the concurrent runner
 internal/doctor/tui/    progress screen and report for `doctor`
 internal/projects/      open domain: finding projects, recent activity, git branch and status, saved choices
-internal/projects/tui/  project list and IDE select box for `open`
+internal/projects/tui/  project list and IDE select box for `open`, also the project picker for `claude`
 internal/ide/           detecting installed IDEs and opening projects, or a file at a line, in them
 internal/ide/idepicker/ the IDE select box shared by `open`, `status`, `prs` and `todo`
 internal/gitstatus/     status domain: reading each repository's changes, sync, stashes, branches; fetch
@@ -270,7 +285,7 @@ internal/todos/         todo domain: finding marker comments in the files git li
 internal/todos/tui/     table and details box with the surrounding code for `todo`
 internal/standup/       standup domain: your commits by branch, your pull request activity through gh, the last day you worked
 internal/standup/tui/   grouped report for `standup`, also printed as plain text
-internal/claudesessions/ claude sessions domain: reading Claude Code transcripts, searching them, resuming one
+internal/claudesessions/ claude domain: reading Claude Code transcripts, searching them, resuming one, starting a new one
 internal/claudesessions/tui/ searchable table and details box for `claude sessions`
 internal/ui/            shared styles and widgets (progress panel, list cursor, row highlight)
 internal/fsx/           filesystem helpers (disk usage, removal)
