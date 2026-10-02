@@ -21,6 +21,9 @@ import (
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
+// openedVerb names when ngt open last opened a project, in the activity column.
+const openedVerb = "opened"
+
 var errNoIDE = errors.New("no supported IDE found in /Applications or ~/Applications")
 
 type openFlags struct {
@@ -67,9 +70,9 @@ func runOpen(ctx context.Context, out, notices io.Writer, mode outputMode, query
 
 	switch mode {
 	case outputText:
-		return printProjects(ctx, out, root, home, query, state)
+		return printProjects(ctx, out, root, home, query, state.Opened, openedVerb)
 	case outputJSON:
-		found, err := findProjects(ctx, root, query, state)
+		found, err := findProjects(ctx, root, query, state.Opened)
 		if err != nil {
 			return err
 		}
@@ -115,9 +118,10 @@ func rememberIDE(store projects.Store, state *projects.State, path string, edito
 	return store.Save(*state)
 }
 
-// printProjects lists the projects as plain text, for when output is not a terminal.
-func printProjects(ctx context.Context, out io.Writer, root, home, query string, state projects.State) error {
-	found, err := findProjects(ctx, root, query, state)
+// printProjects lists the projects as plain text, for when output is not a terminal. used holds
+// when each project was last used, which usedVerb names in the activity column.
+func printProjects(ctx context.Context, out io.Writer, root, home, query string, used map[string]time.Time, usedVerb string) error {
+	found, err := findProjects(ctx, root, query, used)
 	if err != nil {
 		return err
 	}
@@ -125,13 +129,13 @@ func printProjects(ctx context.Context, out io.Writer, root, home, query string,
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "PROJECT\tBRANCH\tLAST ACTIVITY\tPATH")
 	for _, p := range found {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", p.Name, p.Branch, p.ActivityVerb()+" "+ui.Ago(now, p.LastActivity()), ui.TildePath(p.Path, home))
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", p.Name, p.Branch, p.ActivityVerb(usedVerb)+" "+ui.Ago(now, p.LastActivity()), ui.TildePath(p.Path, home))
 	}
 	return w.Flush()
 }
 
-func findProjects(ctx context.Context, root, query string, state projects.State) ([]projects.Project, error) {
-	found, err := projects.Scan(ctx, root, state.Opened)
+func findProjects(ctx context.Context, root, query string, used map[string]time.Time) ([]projects.Project, error) {
+	found, err := projects.Scan(ctx, root, used)
 	if err != nil {
 		return nil, err
 	}

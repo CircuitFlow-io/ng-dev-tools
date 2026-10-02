@@ -26,10 +26,11 @@ func (p Project) LastActivity() time.Time {
 	return p.Changed
 }
 
-// ActivityVerb says which kind of activity LastActivity is.
-func (p Project) ActivityVerb() string {
+// ActivityVerb says which kind of activity LastActivity is: usedVerb, such as "opened", when it is
+// Opened.
+func (p Project) ActivityVerb(usedVerb string) string {
 	if p.Opened.After(p.Changed) {
-		return "opened"
+		return usedVerb
 	}
 	return "changed"
 }

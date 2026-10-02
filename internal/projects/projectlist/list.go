@@ -222,9 +222,5 @@ func (l List) activity(p projects.Project) string {
 	if p.LastActivity().IsZero() {
 		return ""
 	}
-	verb := "changed"
-	if p.Opened.After(p.Changed) {
-		verb = l.usedVerb
-	}
-	return verb + " " + ui.Ago(l.now, p.LastActivity())
+	return p.ActivityVerb(l.usedVerb) + " " + ui.Ago(l.now, p.LastActivity())
 }

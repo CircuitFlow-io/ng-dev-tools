@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"image/color"
 	"strings"
 	"testing"
 	"time"
@@ -159,12 +160,43 @@ func TestSingleIDESkipsTheBox(t *testing.T) {
 	}
 }
 
-func TestQueryWithOneMatchGoesToTheBox(t *testing.T) {
+func TestQueryWithOneMatchGoesToTheBoxOnceTheTerminalAnswered(t *testing.T) {
 	m := scanned(t, Config{Query: "muse"})
+	if m.state != stateChoosingProject {
+		t.Fatalf("chose before the background color answer, state %v", m.state)
+	}
 
+	m = answered(m)
 	if m.state != stateChoosingIDE || m.project.Name != "museum" {
 		t.Errorf("state %v, project %q", m.state, m.project.Name)
 	}
+}
+
+func TestTypingCancelsChoosingTheOneMatch(t *testing.T) {
+	m := answered(press(t, scanned(t, Config{Query: "muse"}), down))
+
+	if m.state != stateChoosingProject {
+		t.Errorf("state %v, want the project list", m.state)
+	}
+}
+
+func TestLauncherFinishesOnTheProjectWithoutTheIDEBox(t *testing.T) {
+	launcher := &Launcher{Title: "Start Claude in a project", UsedVerb: "claude"}
+	m := scanned(t, Config{Launcher: launcher})
+	if !strings.Contains(view(m), "Start Claude in a project") {
+		t.Errorf("title missing:\n%s", view(m))
+	}
+
+	m = press(t, m, down, enter)
+	project, editor, ok := m.Chosen()
+	if !ok || project.Name != "museum" || editor != (ide.IDE{}) {
+		t.Errorf("Chosen = %q, %v, %v", project.Name, editor, ok)
+	}
+}
+
+func answered(m Model) Model {
+	next, _ := m.Update(tea.BackgroundColorMsg{Color: color.Black})
+	return next.(Model)
 }
 
 func TestDirtyMarker(t *testing.T) {

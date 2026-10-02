@@ -7,8 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/CircuitFlow-io/ng-dev-tools/internal/projects"
+	"time"
 )
 
 func TestPrintProjectsFiltersByQuery(t *testing.T) {
@@ -23,7 +22,7 @@ func TestPrintProjectsFiltersByQuery(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	if err := printProjects(context.Background(), &out, root, "", "m", projects.State{}); err != nil {
+	if err := printProjects(context.Background(), &out, root, "", "m", nil, openedVerb); err != nil {
 		t.Fatal(err)
 	}
 
@@ -33,5 +32,25 @@ func TestPrintProjectsFiltersByQuery(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "weather") {
 		t.Errorf("unmatched project printed:\n%s", out.String())
+	}
+}
+
+func TestPrintProjectsNamesTheUseThatOrdersThem(t *testing.T) {
+	root := t.TempDir()
+	museum := filepath.Join(root, "museum")
+	if err := os.MkdirAll(museum, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(museum, "package.json"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	used := map[string]time.Time{museum: time.Now().Add(time.Hour)}
+
+	var out bytes.Buffer
+	if err := printProjects(context.Background(), &out, root, "", "", used, claudeUsedVerb); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), " claude 1s ago ") {
+		t.Errorf("activity not named after Claude:\n%s", out.String())
 	}
 }

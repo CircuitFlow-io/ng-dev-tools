@@ -27,11 +27,26 @@ import (
 const plainPromptWidth = 80
 
 func newClaudeCmd() *cobra.Command {
+	var flags claudeStartFlags
 	cmd := &cobra.Command{
-		Use:   "claude",
-		Short: "Tools for Claude Code",
-		Args:  cobra.NoArgs,
+		Use:   "claude [query]",
+		Short: "Pick a project and start a new Claude Code session in it",
+		Long: `List the projects in ~/projects, the ones you last had a Claude Code session in first, with their
+git branch and a ● for uncommitted changes. Type to filter and press enter: ngt is replaced by
+claude, started in the project's folder, as if you had typed cd and claude yourself.
+
+A session counts for a project when it was started in the project's own folder. When output is
+not a terminal, or with --json, the projects are printed instead and nothing is started.
+
+Use "ngt claude sessions" to resume an earlier session instead.`,
+		Example: "  ngt claude\n  ngt claude museum\n  ngt claude --root ~/work\n  ngt claude | grep weather\n  ngt claude sessions",
+		Args:    cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			mode := resolveOutput(cmd)
+			return runClaudeStart(cmd.Context(), cmd.OutOrStdout(), mode, strings.Join(args, ""), flags)
+		},
 	}
+	cmd.Flags().StringVar(&flags.root, "root", "", "folder that holds your projects (default: the projectsDir setting, ~/projects)")
 	cmd.AddCommand(newClaudeSessionsCmd())
 	return cmd
 }

@@ -94,8 +94,8 @@ func TestScanSortsByLatestOpenOrChange(t *testing.T) {
 	if got, want := names(found), []string{"opened", "recent", "older"}; !slices.Equal(got, want) {
 		t.Errorf("order = %v, want %v", got, want)
 	}
-	if found[0].ActivityVerb() != "opened" || found[1].ActivityVerb() != "changed" {
-		t.Errorf("verbs = %q, %q", found[0].ActivityVerb(), found[1].ActivityVerb())
+	if found[0].ActivityVerb("opened") != "opened" || found[1].ActivityVerb("opened") != "changed" {
+		t.Errorf("verbs = %q, %q", found[0].ActivityVerb("opened"), found[1].ActivityVerb("opened"))
 	}
 }
 
