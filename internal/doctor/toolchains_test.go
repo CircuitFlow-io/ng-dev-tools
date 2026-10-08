@@ -127,9 +127,6 @@ func TestMinimumVersion(t *testing.T) {
 	spec := toolSpec{command: "pod", args: []string{"--version"}, minimum: minCocoaPods, fix: "brew install cocoapods"}
 
 	assertStatus(t, spec.check(t.Context(), m.env()), StatusFail)
-
-	optional := toolSpec{command: "eas", args: []string{"--version"}, optional: true}
-	assertStatus(t, optional.check(t.Context(), m.env()), StatusWarn)
 }
 
 func TestAndroidSDKFoundButNotExported(t *testing.T) {

@@ -43,7 +43,6 @@ func systemChecks() []Check {
 			command: []string{"csrutil", "status"}, enabledText: "status: enabled",
 			problem: "SIP is disabled", fix: "boot into Recovery and run: csrutil enable",
 		}.check},
-		{Name: "Time Machine", Group: GroupSystem, Run: checkTimeMachine},
 		{Name: "macOS updates", Group: GroupSystem, Run: checkSoftwareUpdates},
 	}, wellnessChecks()...)
 }
