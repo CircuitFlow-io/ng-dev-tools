@@ -11,25 +11,15 @@ type toolSpec struct {
 	args    []string
 	minimum Version
 	fix     string
-	// optional tools only warn when missing.
-	optional bool
 }
 
 func (s toolSpec) check(ctx context.Context, env Env) Result {
 	v, err := env.version(ctx, s.command, s.args...)
 	if err != nil {
-		return s.missing(err)
+		return missing(err, s.fix)
 	}
 	if v.Less(s.minimum) {
 		return fail(fmt.Sprintf("%s, need %s or newer", v, s.minimum), s.fix)
 	}
 	return pass(v.String())
-}
-
-func (s toolSpec) missing(err error) Result {
-	result := missing(err, s.fix)
-	if s.optional {
-		result.Status = StatusWarn
-	}
-	return result
 }

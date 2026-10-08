@@ -37,9 +37,6 @@ func iosChecks() []Check {
 		{Name: "Watchman", Group: GroupIOS, Run: toolSpec{
 			command: "watchman", args: []string{"--version"}, fix: "brew install watchman",
 		}.check},
-		{Name: "EAS CLI", Group: GroupIOS, Run: toolSpec{
-			command: "eas", args: []string{"--version"}, fix: "npm install -g eas-cli", optional: true,
-		}.check},
 	}
 }
 
