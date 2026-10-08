@@ -247,19 +247,6 @@ func TestSecuritySetting(t *testing.T) {
 	assertStatus(t, m.run(firewall.check), StatusPass)
 }
 
-func TestTimeMachine(t *testing.T) {
-	m := newMachine(t)
-	m.install("tmutil", "tmutil destinationinfo", "tmutil: No destinations configured.")
-	assertStatus(t, m.run(checkTimeMachine), StatusWarn)
-
-	m.runner.Outputs["tmutil destinationinfo"] = "Name : Backup\nKind : Local"
-	m.runner.Outputs["tmutil latestbackup"] = "/Volumes/Backup/2026-09-27-101500.backup"
-	assertStatus(t, m.run(checkTimeMachine), StatusPass)
-
-	m.runner.Outputs["tmutil latestbackup"] = "/Volumes/Backup/2026-09-01-101500.backup"
-	assertStatus(t, m.run(checkTimeMachine), StatusWarn)
-}
-
 func TestSoftwareUpdates(t *testing.T) {
 	m := newMachine(t)
 	m.runner.Outputs["defaults export "+softwareUpdatePlist+" -"] = `<?xml version="1.0" encoding="UTF-8"?>

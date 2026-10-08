@@ -18,7 +18,6 @@ import (
 
 const (
 	day                 = 24 * time.Hour
-	maxBackupAge        = 7 * day
 	maxUptime           = 14 * day
 	panicWindow         = 30 * day
 	maxBatteryCycles    = 1000
@@ -26,17 +25,15 @@ const (
 	fullCPUSpeed        = 100
 	maxClockOffset      = 2.0
 	lowPowerModeOn      = "1"
-	backupTimeLayout    = "2006-01-02-150405"
 	softwareUpdatePlist = "/Library/Preferences/com.apple.SoftwareUpdate"
 	diagnosticReports   = "/Library/Logs/DiagnosticReports"
 	timeServer          = "time.apple.com"
 )
 
 var (
-	backupTimePattern = regexp.MustCompile(`\d{4}-\d{2}-\d{2}-\d{6}`)
-	bootTimePattern   = regexp.MustCompile(`sec = (\d+)`)
-	cpuLimitPattern   = regexp.MustCompile(`CPU_Speed_Limit\s*=\s*(\d+)`)
-	healthyBattery    = map[string]bool{"Good": true, "Normal": true}
+	bootTimePattern = regexp.MustCompile(`sec = (\d+)`)
+	cpuLimitPattern = regexp.MustCompile(`CPU_Speed_Limit\s*=\s*(\d+)`)
+	healthyBattery  = map[string]bool{"Good": true, "Normal": true}
 )
 
 func wellnessChecks() []Check {
@@ -48,36 +45,6 @@ func wellnessChecks() []Check {
 		{Name: "Kernel panics", Group: GroupSystem, Run: checkKernelPanics},
 		{Name: "Clock", Group: GroupSystem, NeedsNetwork: true, Run: checkClock},
 	}
-}
-
-func checkTimeMachine(ctx context.Context, env Env) Result {
-	destinations, err := env.output(ctx, "tmutil", "destinationinfo")
-	if err != nil {
-		return skip("could not read Time Machine settings")
-	}
-	if strings.Contains(destinations, "No destinations") {
-		return warn("not set up", "System Settings > General > Time Machine")
-	}
-	latest, _ := env.output(ctx, "tmutil", "latestbackup")
-	backedUp, ok := parseBackupTime(latest)
-	if !ok {
-		return warn("no completed backup found", "connect your backup disk and run: tmutil startbackup")
-	}
-	age := env.Now.Sub(backedUp)
-	summary := "last backup " + ui.Age(env.Now, backedUp) + " ago"
-	if age > maxBackupAge {
-		return warn(summary, "connect your backup disk and run: tmutil startbackup")
-	}
-	return pass(summary)
-}
-
-func parseBackupTime(path string) (time.Time, bool) {
-	stamp := backupTimePattern.FindString(path)
-	if stamp == "" {
-		return time.Time{}, false
-	}
-	t, err := time.ParseInLocation(backupTimeLayout, stamp, time.Local)
-	return t, err == nil
 }
 
 func checkSoftwareUpdates(ctx context.Context, env Env) Result {

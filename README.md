@@ -69,7 +69,7 @@ ngt doctor --problems      # hide what passed
 ngt doctor --offline       # skip network checks and latest-version lookups
 ```
 
-Groups: `node` (nvm, Node on the latest LTS, pnpm 11+), `ios` (Xcode, simulator runtime, CocoaPods, Ruby, Watchman), `android` (JDK 17, JAVA_HOME, ANDROID_HOME, SDK components, AVD), `go` (Go and gopls, dlv, golangci-lint, gofumpt, goimports), `claude`, `shell` (UTF-8 locale, PATH, competing Node installs, open files limit), `git` (identity, defaults, gh, GitHub SSH), `globals` (misplaced and outdated npm globals, Homebrew), `network` (DNS, the registries and CDNs you download from, proxies), `services` (Docker, brew services, failing launch agents), `caches` (build caches over a size limit), `system` (disk, memory, FileVault, firewall, SIP, Time Machine, macOS updates, uptime, heat, battery, kernel panics, clock).
+Groups: `node` (nvm, Node on the latest LTS, pnpm 11+), `ios` (Xcode, simulator runtime, CocoaPods, Ruby, Watchman), `android` (JDK 17, JAVA_HOME, ANDROID_HOME, SDK components, AVD), `go` (Go and gopls, dlv, golangci-lint, gofumpt, goimports), `claude`, `shell` (UTF-8 locale, PATH, competing Node installs, open files limit), `git` (identity, defaults, gh, GitHub SSH), `globals` (misplaced and outdated npm globals, Homebrew), `network` (DNS, the registries and CDNs you download from, proxies), `services` (Docker, brew services, failing launch agents), `caches` (build caches over a size limit), `system` (disk, memory, FileVault, firewall, SIP, macOS updates, uptime, heat, battery, kernel panics, clock).
 
 Run it from your normal terminal so it sees the same environment variables as your builds. It exits with status 1 when any check fails. To add a check, add a `Check` to the group's file in `internal/doctor/`.
 
