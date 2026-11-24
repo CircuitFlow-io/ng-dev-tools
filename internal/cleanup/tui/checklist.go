@@ -18,12 +18,22 @@ const (
 	sizeWidth     = 10
 	tagsWidth     = 24
 	minTitleWidth = 20
+	groupIndent   = "  "
 )
 
-// row is one line of the checklist: either a category header or an item.
+type rowKind int
+
+const (
+	rowCategory rowKind = iota
+	rowGroup
+	rowItem
+)
+
+// row is one line of the checklist: a category header, a group header or an item.
 type row struct {
-	isHeader bool
+	kind     rowKind
 	category cleanup.Category
+	group    string
 	item     int
 }
 
@@ -38,15 +48,20 @@ type checklist struct {
 	highlight color.Color
 }
 
-// newChecklist preselects items that are safe to remove. Items must be grouped by category.
+// newChecklist preselects items that are safe to remove. Items must be grouped by category,
+// and items sharing a Group must be adjacent.
 func newChecklist(items []cleanup.Item) checklist {
 	c := checklist{items: items, selected: make([]bool, len(items))}
 	for i, item := range items {
 		c.selected[i] = item.Safety == cleanup.SafetySafe
-		if i == 0 || items[i-1].Category != item.Category {
-			c.rows = append(c.rows, row{isHeader: true, category: item.Category})
+		newCategory := i == 0 || items[i-1].Category != item.Category
+		if newCategory {
+			c.rows = append(c.rows, row{kind: rowCategory, category: item.Category})
 		}
-		c.rows = append(c.rows, row{category: item.Category, item: i})
+		if item.Group != "" && (newCategory || items[i-1].Group != item.Group) {
+			c.rows = append(c.rows, row{kind: rowGroup, category: item.Category, group: item.Group})
+		}
+		c.rows = append(c.rows, row{kind: rowItem, category: item.Category, group: item.Group, item: i})
 	}
 	c.cursor = ui.NewListCursor(len(c.rows), 1)
 	return c
@@ -57,31 +72,52 @@ func (c *checklist) resize(width, height int) {
 	c.cursor.Resize(height)
 }
 
-// toggle flips the item under the cursor, or the whole category when on a header.
+// toggle flips the item under the cursor, or every item under a header.
 func (c *checklist) toggle() {
 	current := c.rows[c.cursor.Index]
-	if current.isHeader {
+	switch current.kind {
+	case rowCategory:
 		c.toggleCategory(current.category)
-		return
+	case rowGroup:
+		c.toggleGroup(current.category, current.group)
+	case rowItem:
+		c.selected[current.item] = !c.selected[current.item]
 	}
-	c.selected[current.item] = !c.selected[current.item]
 }
 
 func (c *checklist) toggleCurrentCategory() {
 	c.toggleCategory(c.rows[c.cursor.Index].category)
 }
 
-// toggleCategory selects every item in the category, or clears them if all were selected.
+// toggleCurrentGroup flips the group the cursor is in; outside a group it flips the single item.
+func (c *checklist) toggleCurrentGroup() {
+	current := c.rows[c.cursor.Index]
+	if current.group == "" {
+		c.toggle()
+		return
+	}
+	c.toggleGroup(current.category, current.group)
+}
+
 func (c *checklist) toggleCategory(category cleanup.Category) {
+	c.toggleWhere(func(item cleanup.Item) bool { return item.Category == category })
+}
+
+func (c *checklist) toggleGroup(category cleanup.Category, group string) {
+	c.toggleWhere(func(item cleanup.Item) bool { return item.Category == category && item.Group == group })
+}
+
+// toggleWhere selects every matching item, or clears them if all were already selected.
+func (c *checklist) toggleWhere(matches func(cleanup.Item) bool) {
 	allSelected := true
 	for i, item := range c.items {
-		if item.Category == category && !c.selected[i] {
+		if matches(item) && !c.selected[i] {
 			allSelected = false
 			break
 		}
 	}
 	for i, item := range c.items {
-		if item.Category == category {
+		if matches(item) {
 			c.selected[i] = !allSelected
 		}
 	}
@@ -103,9 +139,13 @@ func (c checklist) selectedItems() []cleanup.Item {
 	return items
 }
 
+func (c checklist) currentRow() row {
+	return c.rows[c.cursor.Index]
+}
+
 func (c checklist) currentItem() (cleanup.Item, bool) {
-	current := c.rows[c.cursor.Index]
-	if current.isHeader {
+	current := c.currentRow()
+	if current.kind != rowItem {
 		return cleanup.Item{}, false
 	}
 	return c.items[current.item], true
@@ -124,19 +164,33 @@ func (c checklist) renderRow(index int, now time.Time) string {
 	r := c.rows[index]
 	p := ui.NewRowPainter(index == c.cursor.Index, c.highlight)
 	var content string
-	if r.isHeader {
-		content = c.renderHeader(p, r.category)
-	} else {
-		content = c.renderItem(p, r.item, now)
+	switch r.kind {
+	case rowCategory:
+		content = c.renderCategory(p, r.category)
+	case rowGroup:
+		content = c.renderGroup(p, r)
+	case rowItem:
+		content = c.renderItem(p, r, now)
 	}
 	return p.Fill(p.Cursor()+content, c.width)
 }
 
-func (c checklist) renderHeader(p ui.RowPainter, category cleanup.Category) string {
+func (c checklist) renderCategory(p ui.RowPainter, category cleanup.Category) string {
+	stats := c.stats(func(item cleanup.Item) bool { return item.Category == category })
+	return p.Paint(ui.Heading, category.String()) + p.Paint(ui.Muted, stats)
+}
+
+func (c checklist) renderGroup(p ui.RowPainter, r row) string {
+	stats := c.stats(func(item cleanup.Item) bool { return item.Category == r.category && item.Group == r.group })
+	return p.Paint(lipgloss.NewStyle(), groupIndent) + p.Paint(ui.Bold, r.group) + p.Paint(ui.Muted, stats)
+}
+
+// stats summarises matching items as "  3 items · 1.2 GB · 400 MB selected".
+func (c checklist) stats(matches func(cleanup.Item) bool) string {
 	var count int
 	var total, chosen int64
 	for i, item := range c.items {
-		if item.Category != category {
+		if !matches(item) {
 			continue
 		}
 		count++
@@ -145,17 +199,20 @@ func (c checklist) renderHeader(p ui.RowPainter, category cleanup.Category) stri
 			chosen += item.Size
 		}
 	}
-	stats := fmt.Sprintf("  %s · %s · %s selected", ui.Count(count, "item"), ui.Bytes(total), ui.Bytes(chosen))
-	return p.Paint(ui.Heading, category.String()) + p.Paint(ui.Muted, stats)
+	return fmt.Sprintf("  %s · %s · %s selected", ui.Count(count, "item"), ui.Bytes(total), ui.Bytes(chosen))
 }
 
-func (c checklist) renderItem(p ui.RowPainter, index int, now time.Time) string {
-	item := c.items[index]
-	box := p.Paint(ui.Muted, "[ ] ")
-	if c.selected[index] {
-		box = p.Paint(ui.Success, "[✓] ")
+func (c checklist) renderItem(p ui.RowPainter, r row, now time.Time) string {
+	item := c.items[r.item]
+	indent := ""
+	if r.group != "" {
+		indent = groupIndent
 	}
-	titleWidth := max(minTitleWidth, c.width-cursorWidth-checkboxWidth-sizeWidth-tagsWidth)
+	box := p.Paint(ui.Muted, indent+"[ ] ")
+	if c.selected[r.item] {
+		box = p.Paint(ui.Success, indent+"[✓] ")
+	}
+	titleWidth := max(minTitleWidth, c.width-cursorWidth-len(indent)-checkboxWidth-sizeWidth-tagsWidth)
 	titleStyle := lipgloss.NewStyle().Width(titleWidth)
 	if p.IsHighlighted() {
 		titleStyle = titleStyle.Bold(true)

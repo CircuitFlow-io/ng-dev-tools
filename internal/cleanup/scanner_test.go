@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -58,5 +59,38 @@ func TestScanMeasuresSortsAndFilters(t *testing.T) {
 	}
 	if updates == 0 {
 		t.Error("no progress reported")
+	}
+}
+
+func TestScanKeepsGroupsTogetherAndShowsSmallGroupedItems(t *testing.T) {
+	home := t.TempDir()
+	big := makeDir(t, filepath.Join(home, "big"), 3*1024*1024)
+	archiveA := makeDir(t, filepath.Join(home, "a"), 2*1024*1024)
+	archiveB := makeDir(t, filepath.Join(home, "b"), 512*1024)
+	tinySim := makeDir(t, filepath.Join(home, "sim"), 1024)
+
+	grouped := func(title, group, path string) Item {
+		item := PathItem(CategoryDeveloper, SafetyReview, title, path)
+		item.Group = group
+		return item
+	}
+	sim := grouped("sim", "Simulators", tinySim)
+	sim.ShowWhenSmall = true
+	scanner := Scanner{Rules: []Rule{fakeRule{name: "dev", category: CategoryDeveloper, items: []Item{
+		grouped("archive B", "Archives", archiveB),
+		PathItem(CategoryDeveloper, SafetySafe, "big", big),
+		sim,
+		grouped("archive A", "Archives", archiveA),
+	}}}}
+
+	result := scanner.Scan(context.Background(), nil)
+
+	var got []string
+	for _, item := range result.Items {
+		got = append(got, item.Title)
+	}
+	want := []string{"big", "archive A", "archive B", "sim"}
+	if !slices.Equal(got, want) {
+		t.Errorf("order = %v, want %v", got, want)
 	}
 }

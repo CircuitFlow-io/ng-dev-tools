@@ -67,6 +67,12 @@ type Item struct {
 	Size          int64
 	LastUsed      time.Time
 	NeedsRoot     bool
+	// Group names a set of sibling items (all Xcode archives, all simulators) that are listed
+	// together and can be selected at once.
+	Group string
+	// ShowWhenSmall keeps the item listed even below the minimum reportable size, for things
+	// worth removing for the clutter they cause rather than the space they take.
+	ShowWhenSmall bool
 }
 
 // PathItem builds an item that is removed by deleting its paths.

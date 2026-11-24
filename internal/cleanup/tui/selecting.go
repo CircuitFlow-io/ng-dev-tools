@@ -10,7 +10,7 @@ import (
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/ui"
 )
 
-const selectingHelp = "↑/↓ move · space toggle · c category · a all · n none · enter continue · q quit"
+const selectingHelp = "↑/↓ move · space toggle · t group · c category · a all · n none · enter continue · q quit"
 
 func (m Model) updateSelecting(msg tea.Msg) (tea.Model, tea.Cmd) {
 	key, ok := msg.(tea.KeyPressMsg)
@@ -23,6 +23,8 @@ func (m Model) updateSelecting(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "space", "x":
 		m.list.toggle()
+	case "t":
+		m.list.toggleCurrentGroup()
 	case "c":
 		m.list.toggleCurrentCategory()
 	case "a":
@@ -64,6 +66,9 @@ func (m Model) selectingView() string {
 
 func (m Model) currentItemDetail() string {
 	item, ok := m.list.currentItem()
+	if !ok && m.list.currentRow().kind == rowGroup {
+		return ui.Muted.Render("space toggles every item in this group")
+	}
 	if !ok {
 		return ui.Muted.Render("space toggles the whole category")
 	}

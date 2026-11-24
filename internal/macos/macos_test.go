@@ -31,14 +31,14 @@ func TestLastUsedDatesParsesNULSeparatedValues(t *testing.T) {
 
 func TestParseSimulators(t *testing.T) {
 	data := []byte(`{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-18-6":[
-		{"udid":"U1","name":"iPhone 16","dataPath":"/d/U1/data","isAvailable":false,"lastUsedAt":"2025-01-01T00:00:00Z"}]}}`)
+		{"udid":"U1","name":"iPhone 16","dataPath":"/d/U1/data","isAvailable":false,"state":"Booted","lastUsedAt":"2025-01-01T00:00:00Z"}]}}`)
 
 	sims, err := ParseSimulators(data)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(sims) != 1 || sims[0].UDID != "U1" || sims[0].IsAvailable || sims[0].RuntimeID != "com.apple.CoreSimulator.SimRuntime.iOS-18-6" {
+	if len(sims) != 1 || sims[0].UDID != "U1" || sims[0].IsAvailable || sims[0].RuntimeID != "com.apple.CoreSimulator.SimRuntime.iOS-18-6" || !sims[0].IsBooted() {
 		t.Errorf("unexpected simulators: %+v", sims)
 	}
 }

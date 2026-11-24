@@ -12,9 +12,13 @@ type Simulator struct {
 	Name        string    `json:"name"`
 	DataPath    string    `json:"dataPath"`
 	IsAvailable bool      `json:"isAvailable"`
+	State       string    `json:"state"`
 	LastUsedAt  time.Time `json:"lastUsedAt"`
 	RuntimeID   string    `json:"-"`
 }
+
+// IsBooted reports whether the simulator is running right now.
+func (s Simulator) IsBooted() bool { return s.State == "Booted" }
 
 // SimRuntime is a simulator runtime image as reported by `xcrun simctl runtime list -j`.
 type SimRuntime struct {
