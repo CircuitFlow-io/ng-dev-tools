@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -134,23 +135,30 @@ func TestLargeFilesRule(t *testing.T) {
 func TestSimulatorItem(t *testing.T) {
 	env := testEnv(t)
 	tests := []struct {
-		name      string
-		available bool
-		lastUsed  time.Time
-		wantTitle string
+		name       string
+		sim        macos.Simulator
+		wantTitle  string
+		wantSafety cleanup.Safety
 	}{
-		{"unavailable", false, time.Now(), "Unavailable simulator: iPhone (iOS 18.6)"},
-		{"stale", true, longAgo, "Unused simulator: iPhone (iOS 18.6)"},
-		{"recent", true, time.Now(), ""},
+		{"unavailable", macosSimulator(false, time.Now()), "Unavailable simulator: iPhone (iOS 18.6)", cleanup.SafetySafe},
+		{"never booted", macosSimulator(true, time.Time{}), "Never-booted simulator: iPhone (iOS 18.6)", cleanup.SafetyReview},
+		{"idle", macosSimulator(true, longAgo), "Idle simulator: iPhone (iOS 18.6)", cleanup.SafetyReview},
+		{"recent", macosSimulator(true, time.Now()), "", 0},
+		{"booted", booted(macosSimulator(true, longAgo)), "", 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sim := macosSimulator(tt.available, tt.lastUsed)
-			item, ok := simulatorItem(env, sim)
+			item, ok := simulatorItem(env, tt.sim)
 			if ok != (tt.wantTitle != "") || item.Title != tt.wantTitle {
-				t.Errorf("got (%q, %v), want %q", item.Title, ok, tt.wantTitle)
+				t.Fatalf("got (%q, %v), want %q", item.Title, ok, tt.wantTitle)
 			}
-			if ok && !slices.Equal(item.RemoveCommand, []string{"xcrun", "simctl", "delete", "U1"}) {
+			if !ok {
+				return
+			}
+			if item.Safety != tt.wantSafety || item.Group != simulatorsGroup || !item.ShowWhenSmall {
+				t.Errorf("safety=%v group=%q showWhenSmall=%v", item.Safety, item.Group, item.ShowWhenSmall)
+			}
+			if !slices.Equal(item.RemoveCommand, []string{"xcrun", "simctl", "delete", "U1"}) {
 				t.Errorf("RemoveCommand = %v", item.RemoveCommand)
 			}
 		})
@@ -163,8 +171,68 @@ func macosSimulator(available bool, lastUsed time.Time) macos.Simulator {
 		Name:        "iPhone",
 		DataPath:    "/nonexistent/U1/data",
 		IsAvailable: available,
+		State:       "Shutdown",
 		LastUsedAt:  lastUsed,
 		RuntimeID:   "com.apple.CoreSimulator.SimRuntime.iOS-18-6",
+	}
+}
+
+func booted(sim macos.Simulator) macos.Simulator {
+	sim.State = "Booted"
+	return sim
+}
+
+const archivePlist = `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+	<key>Name</key><string>Treddle</string>
+	<key>CreationDate</key><date>2026-11-23T22:40:17Z</date>
+	<key>ApplicationProperties</key><dict>
+		<key>CFBundleShortVersionString</key><string>0.1.0</string>
+		<key>CFBundleVersion</key><string>52</string>
+	</dict>
+</dict></plist>`
+
+func TestArchivesRuleListsEveryArchive(t *testing.T) {
+	env := testEnv(t)
+	recent := env.InHome("Library/Developer/Xcode/Archives/2026-11-23/Treddle 23-11-2026, 22.40.xcarchive")
+	writeFile(t, filepath.Join(recent, "Info.plist"), archivePlist)
+	unreadable := env.InHome("Library/Developer/Xcode/Archives/2025-01-01/Old.xcarchive")
+	touch(t, filepath.Join(unreadable, "Products", "app"), 1, longAgo)
+
+	items, err := archivesRule{}.Scan(context.Background(), env)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := titles(items), []string{"Xcode archive: Old.xcarchive", "Xcode archive: Treddle 0.1.0 (52)"}; !slices.Equal(got, want) {
+		t.Fatalf("items = %v, want %v (recent archives included)", got, want)
+	}
+	for _, item := range items {
+		if item.Safety != cleanup.SafetyReview || item.Group != archivesGroup {
+			t.Errorf("%s: safety=%v group=%q, want review in %q", item.Title, item.Safety, item.Group, archivesGroup)
+		}
+	}
+	if want := time.Date(2026, 11, 23, 22, 40, 17, 0, time.UTC); !archiveCreated(items, "Treddle").Equal(want) {
+		t.Errorf("LastUsed = %v, want the archive's creation date %v", archiveCreated(items, "Treddle"), want)
+	}
+}
+
+func archiveCreated(items []cleanup.Item, name string) time.Time {
+	for _, item := range items {
+		if strings.Contains(item.Title, name) {
+			return item.LastUsed
+		}
+	}
+	return time.Time{}
+}
+
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -182,8 +250,14 @@ func TestParseDockerDF(t *testing.T) {
 }
 
 func TestRuntimeName(t *testing.T) {
-	if got := runtimeName("com.apple.CoreSimulator.SimRuntime.iOS-18-6"); got != "iOS 18.6" {
-		t.Errorf("runtimeName = %q", got)
+	for identifier, want := range map[string]string{
+		"com.apple.CoreSimulator.SimRuntime.iOS-18-6":            "iOS 18.6",
+		"com.apple.CoreSimulator.SimRuntime.watchOS-27-0":        "watchOS 27.0",
+		"com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4": "iOS 27.2",
+	} {
+		if got := runtimeName(identifier); got != want {
+			t.Errorf("runtimeName(%q) = %q, want %q", identifier, got, want)
+		}
 	}
 }
 

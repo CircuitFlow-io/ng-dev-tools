@@ -16,6 +16,7 @@ type cleanItemJSON struct {
 	Category string `json:"category"`
 	Title    string `json:"title"`
 	Detail   string `json:"detail"`
+	Group    string `json:"group,omitempty"`
 	// Safety is "safe" for things their tool regenerates, "review" for what you may want to keep.
 	Safety    string    `json:"safety"`
 	SizeBytes int64     `json:"sizeBytes"`
@@ -31,6 +32,7 @@ func toCleanJSON(result cleanup.ScanResult) cleanJSON {
 			Category:  item.Category.Key(),
 			Title:     item.Title,
 			Detail:    item.Detail,
+			Group:     item.Group,
 			Safety:    safetyLabel(item.Safety),
 			SizeBytes: item.Size,
 			Paths:     item.Paths,

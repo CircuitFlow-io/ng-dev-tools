@@ -16,7 +16,7 @@ func developerRules() []cleanup.Rule {
 		safe(dev, "Xcode DerivedData", "Library/Developer/Xcode/DerivedData"),
 		safe(dev, "Xcode caches", "Library/Caches/com.apple.dt.Xcode", "Library/Developer/Xcode/UserData/Previews", "Library/Developer/Xcode/Products"),
 		safe(dev, "Simulator caches", "Library/Developer/CoreSimulator/Caches"),
-		separate(staleOnly(review(dev, "Xcode archive", "Library/Developer/Xcode/Archives/*/*.xcarchive"))),
+		archivesRule{},
 		separate(staleOnly(safe(dev, "Device support",
 			"Library/Developer/Xcode/iOS DeviceSupport/*",
 			"Library/Developer/Xcode/watchOS DeviceSupport/*",

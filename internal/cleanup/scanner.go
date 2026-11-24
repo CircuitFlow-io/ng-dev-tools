@@ -54,7 +54,7 @@ func (s Scanner) Scan(ctx context.Context, onProgress func(ScanProgress)) ScanRe
 	items, warnings := s.discover(ctx, report)
 	items = dedupe(items)
 	items = measure(ctx, items, report)
-	items = slices.DeleteFunc(items, func(item Item) bool { return item.Size < minReportableSize })
+	items = slices.DeleteFunc(items, isTooSmall)
 	sortItems(items)
 	return ScanResult{Items: items, Warnings: warnings}
 }
@@ -121,9 +121,32 @@ func presetSize(item Item) int64 {
 	return item.Size
 }
 
+func isTooSmall(item Item) bool {
+	return !item.ShowWhenSmall && item.Size < minReportableSize
+}
+
+// sortItems groups items by category, then largest first. Items sharing a Group stay together,
+// ranked by the group's combined size.
 func sortItems(items []Item) {
+	groupSizes := make(map[string]int64)
+	for _, item := range items {
+		if item.Group != "" {
+			groupSizes[item.Group] += item.Size
+		}
+	}
+	rankSize := func(item Item) int64 {
+		if item.Group == "" {
+			return item.Size
+		}
+		return groupSizes[item.Group]
+	}
 	slices.SortStableFunc(items, func(a, b Item) int {
-		return cmp.Or(cmp.Compare(a.Category, b.Category), cmp.Compare(b.Size, a.Size))
+		return cmp.Or(
+			cmp.Compare(a.Category, b.Category),
+			cmp.Compare(rankSize(b), rankSize(a)),
+			cmp.Compare(a.Group, b.Group),
+			cmp.Compare(b.Size, a.Size),
+		)
 	})
 }
 

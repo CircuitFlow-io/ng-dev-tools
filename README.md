@@ -29,13 +29,15 @@ ngt clean | less                           # non-interactive report when not a t
 | Category | What it finds |
 |----------|---------------|
 | `caches` | `~/Library/Caches`, logs, browser and Electron app caches, Apple service caches, `/Library/Caches` and `/Library/Logs` (root), Trash, iOS updates and device backups |
-| `dev`    | Xcode DerivedData, archives, device support, simulators and runtimes (`simctl`), npm/Yarn/pnpm/Bun, Go, Gradle, Maven, CocoaPods, SwiftPM, pip/uv/Poetry, Cargo, Homebrew, Docker, JetBrains, stale project build folders |
+| `dev`    | Xcode DerivedData, every Xcode archive, device support, simulators (iPhone, iPad, Apple Watch, Apple TV, Vision) that are unavailable, never booted or idle, simulator runtimes (`simctl`), npm/Yarn/pnpm/Bun, Go, Gradle, Maven, CocoaPods, SwiftPM, pip/uv/Poetry, Cargo, Homebrew, Docker, JetBrains, stale project build folders |
 | `apps`   | Apps not opened within the staleness window (with their support files) and leftovers of uninstalled apps |
 | `files`  | Large files and old installers in `~/Downloads` and `~/Desktop` |
 
 Items tagged **review** may contain something you want to keep and are not selected by default. Items tagged **sudo** are root-owned; if you select any, you are asked for your password once before cleaning starts. Every run writes a log to `~/Library/Logs/ngt/`.
 
-Keys: `↑/↓` move, `space` toggle (on a header: the whole category), `c` category, `a` all, `n` none, `enter` continue, `q` quit.
+Related items such as Xcode archives and simulators are listed under a group heading, so you can pick one, several or the whole group.
+
+Keys: `↑/↓` move, `space` toggle (on a header: the whole category or group), `t` group, `c` category, `a` all, `n` none, `enter` continue, `q` quit.
 
 Safety: every path is checked right before deletion and must be strictly inside `$HOME`, `/Applications`, `/Library/Caches` or `/Library/Logs`; well-known folders themselves (`~/Documents`, `~/Library`, ...) and sensitive ones (`~/.ssh`, Keychains, iCloud Drive, Mail) are always refused. Symlinks are never followed.
 

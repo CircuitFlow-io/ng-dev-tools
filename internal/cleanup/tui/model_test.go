@@ -150,3 +150,43 @@ func TestRootItemsRequireSudoBeforeCleaning(t *testing.T) {
 		t.Errorf("state = %v, authorized = %v", m.state, m.cfg.Cleaner.RootAuthorized)
 	}
 }
+
+func groupedItems() []cleanup.Item {
+	archive := func(title string) cleanup.Item {
+		return cleanup.Item{Title: title, Category: cleanup.CategoryDeveloper, Safety: cleanup.SafetyReview, Size: 100 * mb, Group: "Xcode archives", RemoveCommand: []string{"true"}}
+	}
+	return []cleanup.Item{
+		{Title: "DerivedData", Category: cleanup.CategoryDeveloper, Safety: cleanup.SafetySafe, Size: 300 * mb, RemoveCommand: []string{"true"}},
+		archive("App 1.0 (2)"),
+		archive("App 1.0 (1)"),
+	}
+}
+
+func TestGroupSelection(t *testing.T) {
+	const (
+		toGroupHeader  = "down"
+		toFirstArchive = "down"
+	)
+	tests := []struct {
+		name string
+		keys []string
+		want []string
+	}{
+		{"space on a group header picks the whole group", []string{toGroupHeader, "space"}, []string{"DerivedData", "App 1.0 (2)", "App 1.0 (1)"}},
+		{"space on a group member picks just that one", []string{toGroupHeader, toFirstArchive, "space"}, []string{"DerivedData", "App 1.0 (2)"}},
+		{"t on a member picks the whole group", []string{toGroupHeader, toFirstArchive, "t"}, []string{"DerivedData", "App 1.0 (2)", "App 1.0 (1)"}},
+		{"t twice clears the group", []string{toGroupHeader, "t", "t"}, []string{"DerivedData"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := press(t, scanned(t, newTestModel(t, false), groupedItems()), tt.keys...)
+			var got []string
+			for _, item := range m.list.selectedItems() {
+				got = append(got, item.Title)
+			}
+			if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+				t.Errorf("selected %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
