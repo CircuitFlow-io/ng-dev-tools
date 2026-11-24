@@ -9,12 +9,16 @@ import (
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/fsx"
 )
 
-const dev = cleanup.CategoryDeveloper
+const (
+	dev                  = cleanup.CategoryDeveloper
+	claudeSimBuildsGroup = "Claude simulator builds"
+)
 
 func developerRules() []cleanup.Rule {
 	return []cleanup.Rule{
 		safe(dev, "Xcode DerivedData", "Library/Developer/Xcode/DerivedData"),
-		safe(dev, "Xcode caches", "Library/Caches/com.apple.dt.Xcode", "Library/Developer/Xcode/UserData/Previews", "Library/Developer/Xcode/Products"),
+		safe(dev, "Xcode caches", "Library/Caches/com.apple.dt.Xcode", "Library/Developer/Xcode/UserData/Previews", "Library/Developer/Xcode/Products", "Library/Developer/Xcode/DocumentationCache"),
+		safe(dev, "Xcode test device clones", "Library/Developer/XCTestDevices"),
 		safe(dev, "Simulator caches", "Library/Developer/CoreSimulator/Caches"),
 		archivesRule{},
 		separate(staleOnly(safe(dev, "Device support",
@@ -39,6 +43,12 @@ func developerRules() []cleanup.Rule {
 		safe(dev, "Gradle caches", ".gradle/caches", ".gradle/wrapper/dists", ".gradle/daemon", ".gradle/native"),
 		safe(dev, "Android cache", ".android/cache"),
 		separate(staleOnly(review(dev, "Android emulator", ".android/avd/*.avd"))),
+		grouped(claudeSimBuildsGroup, separate(safe(dev, "Claude simulator build", "Library/Application Support/Claude/simulator-builds/*"))),
+		safe(dev, "Expo caches",
+			".expo/ios-simulator-app-cache", ".expo/android-apk-cache", ".expo/expo-go",
+			".expo/native-modules-cache", ".expo/versions-cache", ".expo/schema-cache",
+		),
+		safe(dev, "nvm download cache", ".nvm/.cache"),
 		safe(dev, "Maven repository", ".m2/repository"),
 		safe(dev, "CocoaPods cache", "Library/Caches/CocoaPods", ".cocoapods/repos/trunk"),
 		safe(dev, "Carthage cache", "Library/Caches/org.carthage.CarthageKit"),
@@ -58,6 +68,7 @@ func developerRules() []cleanup.Rule {
 		homebrewRule{},
 		simulatorsRule{},
 		simRuntimesRule{},
+		nvmRule{},
 		dockerRule{},
 	}
 }

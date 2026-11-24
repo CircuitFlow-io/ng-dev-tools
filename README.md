@@ -28,8 +28,8 @@ ngt clean | less                           # non-interactive report when not a t
 
 | Category | What it finds |
 |----------|---------------|
-| `caches` | `~/Library/Caches`, logs, browser and Electron app caches, Apple service caches, `/Library/Caches` and `/Library/Logs` (root), Trash, iOS updates and device backups |
-| `dev`    | Xcode DerivedData, every Xcode archive, device support, simulators (iPhone, iPad, Apple Watch, Apple TV, Vision) that are unavailable, never booted or idle, simulator runtimes (`simctl`), npm/Yarn/pnpm/Bun, Go, Gradle, Maven, CocoaPods, SwiftPM, pip/uv/Poetry, Cargo, Homebrew, Docker, JetBrains, stale project build folders |
+| `caches` | `~/Library/Caches`, logs (`~/Library/Logs` and the log folders apps keep in Application Support), big `*.log` files and Java heap dumps (`*.hprof`) in your home folder, projects and Application Support, browser and Electron app caches (including their Partitions), Apple service caches, `/Library/Caches` and `/Library/Logs` (root), Trash, iOS updates and device backups |
+| `dev`    | Xcode DerivedData, every Xcode archive, test device clones, device support, simulators (iPhone, iPad, Apple Watch, Apple TV, Vision) that are unavailable, never booted or idle, simulator runtimes (`simctl`), Claude simulator builds, Expo caches, Node versions installed with nvm other than the newest and the default, npm/Yarn/pnpm/Bun, Go, Gradle, Maven, CocoaPods, SwiftPM, pip/uv/Poetry, Cargo, Homebrew, Docker, JetBrains, stale project build folders |
 | `apps`   | Apps not opened within the staleness window (with their support files) and leftovers of uninstalled apps |
 | `files`  | Large files and old installers in `~/Downloads` and `~/Desktop` |
 
