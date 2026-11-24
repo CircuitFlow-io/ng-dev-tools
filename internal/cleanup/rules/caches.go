@@ -78,7 +78,6 @@ func catchAllCacheRules() []cleanup.Rule {
 	return []cleanup.Rule{
 		excluding(separate(safe(caches, "App cache", "Library/Caches/*")), append(cacheExclusions, appleCachePattern)...),
 		excluding(review(caches, "Apple service caches", "Library/Caches/"+appleCachePattern), cacheExclusions...),
-		excluding(separate(safe(caches, "Logs", "Library/Logs/*")), "ngt"),
 		separate(safe(caches, "Cache", ".cache/*")),
 		separate(review(caches, "System cache", "/Library/Caches/*")),
 		separate(review(caches, "System logs", "/Library/Logs/*")),
@@ -94,10 +93,12 @@ func profileCachePatterns(root string) []string {
 	return patterns
 }
 
+// appCachePatterns covers an Electron app's own caches and those of its extra browser sessions
+// ("Partitions"), where apps such as Notion keep most of their cached pages.
 func appCachePatterns(root string) []string {
-	patterns := make([]string, 0, len(electronCacheDirs))
+	patterns := make([]string, 0, 2*len(electronCacheDirs))
 	for _, dir := range electronCacheDirs {
-		patterns = append(patterns, filepath.Join(root, dir))
+		patterns = append(patterns, filepath.Join(root, dir), filepath.Join(root, "Partitions", "*", dir))
 	}
 	return patterns
 }

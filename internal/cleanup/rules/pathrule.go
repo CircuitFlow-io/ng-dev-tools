@@ -5,6 +5,7 @@ import (
 	"context"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/cleanup"
 	"github.com/CircuitFlow-io/ng-dev-tools/internal/fsx"
@@ -23,6 +24,8 @@ type PathRule struct {
 	Exclude []string
 	// StaleOnly keeps only matches not modified within the staleness window.
 	StaleOnly bool
+	// Group lists every item this rule yields under one heading.
+	Group string
 }
 
 func (r PathRule) Name() string               { return r.Title }
@@ -34,13 +37,39 @@ func (r PathRule) Scan(_ context.Context, env cleanup.Env) ([]cleanup.Item, erro
 		return nil, nil
 	}
 	if !r.Separate {
-		return []cleanup.Item{cleanup.PathItem(r.Cat, r.Safety, r.Title, matches...)}, nil
+		return []cleanup.Item{r.item(r.Title, matches...)}, nil
 	}
 	items := make([]cleanup.Item, 0, len(matches))
 	for _, match := range matches {
-		items = append(items, cleanup.PathItem(r.Cat, r.Safety, r.Title+": "+filepath.Base(match), match))
+		items = append(items, r.item(r.Title+": "+matchLabel(env, match), match))
 	}
 	return items, nil
+}
+
+func (r PathRule) item(title string, paths ...string) cleanup.Item {
+	item := cleanup.PathItem(r.Cat, r.Safety, title, paths...)
+	item.Group = r.Group
+	return item
+}
+
+// genericNames are folder names that say nothing about who owns them.
+var genericNames = map[string]bool{"logs": true, "log": true, "data": true}
+
+// matchLabel names a match by its folder, prefixed with parent folders while the name is still
+// generic, so ".../Cursor/logs" reads as "Cursor/logs" and ".../com.docker.docker/Data/log" as
+// "com.docker.docker/Data/log".
+func matchLabel(env cleanup.Env, match string) string {
+	label, dir := filepath.Base(match), filepath.Dir(match)
+	for genericNames[strings.ToLower(firstSegment(label))] && dir != env.Home && dir != filepath.Dir(dir) {
+		label = filepath.Base(dir) + "/" + label
+		dir = filepath.Dir(dir)
+	}
+	return label
+}
+
+func firstSegment(label string) string {
+	segment, _, _ := strings.Cut(label, "/")
+	return segment
 }
 
 func (r PathRule) matches(env cleanup.Env) []string {
@@ -87,6 +116,11 @@ func safe(cat cleanup.Category, title string, patterns ...string) PathRule {
 
 func review(cat cleanup.Category, title string, patterns ...string) PathRule {
 	return PathRule{Title: title, Cat: cat, Safety: cleanup.SafetyReview, Patterns: patterns}
+}
+
+func grouped(group string, r PathRule) PathRule {
+	r.Group = group
+	return r
 }
 
 func separate(r PathRule) PathRule {

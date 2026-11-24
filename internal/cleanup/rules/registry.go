@@ -13,6 +13,7 @@ func Default() []cleanup.Rule {
 		developerRules(),
 		[]cleanup.Rule{projectsRule{}},
 		cacheRules(),
+		appLogRules(),
 		catchAllCacheRules(),
 		[]cleanup.Rule{unusedAppsRule{}, leftoversRule{}, largeFilesRule{}},
 	)
